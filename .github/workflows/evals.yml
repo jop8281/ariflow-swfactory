@@ -4,7 +4,7 @@ name: evals
 # that steers it is in the `paths` trigger below. Three jobs:
 #   eval-suite  demo/evals/**: the whole suite with the SCRIPTED agent in a local sandbox, gated
 #               on demo/evals/baseline.json. No secret, so it runs on forks and every PR that
-#               touches CLAUDE.md, a prompt, a blueprint or the suite itself (docs/evals.md).
+#               touches AGENTS.md/CLAUDE.md, a prompt, a blueprint or the suite itself (docs/evals.md).
 # The two below run the REAL path on demo/issue.md, with the same assertion on the RunReport the
 # CLI writes to .factory/<run>/report.json (tests passed, deliver:ok); local scm, so the PR is
 # printed, not opened:
@@ -23,6 +23,7 @@ on:
   push:
     branches: [main]
     paths:
+      - AGENTS.md
       - CLAUDE.md
       - REVIEW.md
       - bands.yaml
@@ -36,6 +37,7 @@ on:
       - .github/workflows/evals.yml
   pull_request:
     paths:
+      - AGENTS.md
       - CLAUDE.md
       - REVIEW.md
       - bands.yaml
