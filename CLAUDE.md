@@ -11,7 +11,7 @@ in `stages.py`. Details: README + docs/*.md.
 - `uv sync`; `uv run pytest` — the hermetic suite (fake subprocess, tmp git repos, no network).
   `addopts` already carries `-q`; a second `-q` hides the pass/fail summary line, and `| tail`
   hides the exit code — read `${pipestatus[1]}` (zsh) before calling a run green.
-- `uv run ruff check . && uv run ruff format --check .` — line length 100; E,F,I,B,UP,SIM.
+- `uv run ruff check . && uv run ruff format --check .` — line length 120; E,F,I,B,UP,SIM.
 - `uv run swfactory demo [--sandbox srt|docker] [--real]` — scripted replay, no keys, ~10 s;
   `--real` runs claude in an islo sandbox and opens a real PR.
 - `uv run swfactory run --issue <n|path> --agent claude --sandbox srt --scm local|github`
@@ -21,9 +21,10 @@ in `stages.py`. Details: README + docs/*.md.
   backend-managed Cell, or `--scm github`. `SWF_APPROVE=auto` can no longer satisfy a human gate.
 - `uv run swfactory approve <dag_run_id> intent|plan [--reject] [--map-index <j>]`; `doctor
   [--json]` (exit 1 per red row, with a `fix:`); `metrics|maintain --root .`; `herd`; `webhook`.
-- `cargo test --workspace --locked`, `cargo fmt`/`clippy -- -D warnings` —
-  Run the format check as `cd rust && cargo fmt --all -- --check`. `--check` is a rustfmt option and must be passed after `--`.
-  run these after ANY change to `blueprints/*.toml`, backend HTTP shapes or CLI surfaces, not only
+- `cargo test --workspace --locked`, `cargo fmt --all --check`, and
+  `cargo clippy --workspace --all-targets --all-features -- -D warnings` — run these from the
+  repository root, where the Cargo workspace manifest lives. Run them after ANY change to
+  `blueprints/*.toml`, backend HTTP shapes or CLI surfaces, not only
   to `rust/`: the crates are a second reader of those contracts (`deny_unknown_fields`, and a test
   that parses every shipped blueprint), and two PRs went red in CI for skipping them.
   the `swf` operator binary in `rust/` (docs/swf.md). It drives the same Airflow/`gh`/`islo`
