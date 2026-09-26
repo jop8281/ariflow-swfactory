@@ -29,7 +29,7 @@ uv run --group airflow pytest tests/test_dag_parity.py tests/test_dag_smoke.py
 
 - Keep a PR focused on one behavior or operational concern.
 - Add or update tests for every behavior change.
-- Update `README.md` and `CLAUDE.md` when commands, invariants, or supported versions change.
+- Update `README.md` and canonical `AGENTS.md` when commands, invariants, or supported versions change.
 - Add a bullet under `## [Unreleased]` in `CHANGELOG.md` for anything a user of the factory
   would notice: a blueprint key, a `SWF_*` knob, a CLI flag, a sandbox behaviour, a security
   boundary.
@@ -37,7 +37,7 @@ uv run --group airflow pytest tests/test_dag_parity.py tests/test_dag_smoke.py
 - Describe the risk, trust-boundary impact, and exact verification commands in the PR body.
 
 Before opening a PR, run the same lint, test, Airflow smoke, and demo commands shown above. See
-`CLAUDE.md` for the architecture invariants and `REVIEW.md` for the review contract.
+`AGENTS.md` for the agent contract (`CLAUDE.md` is its symlink) and `REVIEW.md` for the review contract.
 
 ## Release
 

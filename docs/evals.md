@@ -1,6 +1,6 @@
 # Evals — the factory's own regression suite
 
-`CLAUDE.md`, the stage prompts, `REVIEW.md`, `bands.yaml`, the `.claude/` knowledge and hook
+`AGENTS.md` (`CLAUDE.md` symlinks to it), the stage prompts, `REVIEW.md`, `bands.yaml`, the `.claude/` knowledge and hook
 sources, and the blueprints steer the agent. The [AI-native SDLC
 playbook](https://claude.com/blog/the-ai-native-sdlc-playbook) argues that this configuration
 deserves the same regression discipline as code: collect 20–50 real tasks with accepted outcomes,
@@ -31,7 +31,7 @@ an eval never opens a pull request.
 
 CI is configured to run the suite keylessly in `.github/workflows/evals.yml` (`eval-suite`), whose
 `paths` trigger
-lists every file that steers the agent — `CLAUDE.md`, `REVIEW.md`, `bands.yaml`, `.claude/**`,
+lists every file that steers the agent — `AGENTS.md`, `CLAUDE.md`, `REVIEW.md`, `bands.yaml`, `.claude/**`,
 `src/swfactory/prompts/**`, `blueprints/**`, `demo/evals/**`. The keyed `real-demo` and
 `evals-islo` jobs (real agent, weekly) are unchanged.
 
