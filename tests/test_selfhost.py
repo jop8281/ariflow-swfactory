@@ -48,6 +48,7 @@ FUTURE_RUNS = (
     "scripts",
     "pyproject.toml",
     "uv.lock",
+    "AGENTS.md",
     "CLAUDE.md",
     "config/capability-inventory.json",
 )
