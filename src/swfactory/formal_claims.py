@@ -260,11 +260,7 @@ class ClaimCertificate:
 
     @property
     def meets_claim_policy(self) -> bool:
-        return (
-            not self.refuted_claims
-            and not self.unresolved_required_claims
-            and not self.unassessed_formalization_claims
-        )
+        return not self.refuted_claims and not self.unresolved_required_claims and not self.unassessed_formalization_claims
 
     def as_dict(self) -> dict[str, object]:
         return {
