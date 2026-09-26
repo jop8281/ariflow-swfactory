@@ -61,7 +61,7 @@ assigned = []
 mode = "human"              # MANDATORY here; see (1) in the header
 
 [limits]
-max_build_iterations = 4    # the first failure is usually ruff (line length 100), not logic
+max_build_iterations = 4    # the first failure is usually the lint/format gate, not logic
 max_review_fixes = 2        # a self-edit spans code plus docs; one repair round is thin
 max_turns = 120             # per invocation; reading stages.py (54 KB) costs turns before an Edit
 budget_usd_per_stage = 8.0  # <= budget_usd; 4x the demo line, for a 4x-larger context per stage
