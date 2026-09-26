@@ -126,10 +126,7 @@ def test_certificate_exposes_uncertainty_and_blocks_unassessed_required_claims()
 
     assert "behavior.unassessed" in certificate.unassessed_formalization_claims
     assert certificate.meets_claim_policy is False
-    assert (
-        certificate.as_dict()["formalization_register"]["behavior.unassessed"]["status"]
-        == "unassessed"
-    )
+    assert certificate.as_dict()["formalization_register"]["behavior.unassessed"]["status"] == "unassessed"
 
 
 def test_formalization_uncertainty_is_bound_into_the_frozen_claim() -> None:
