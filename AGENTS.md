@@ -1,30 +1,42 @@
-# AI harness entrypoint
+# swfactory agent contract
 
-This repository is an Apache Airflow software factory. When acting as an **outer coding harness**
-(Codex CLI, Claude Code, Grok, or another agent runner), do not create a second lifecycle loop and
-do not impersonate an inner stage worker.
+This repository is an **Airflow-governed software atelier**:
 
-## Submit factory work
+`work order -> Cell -> Airflow -> bounded agent work -> evidence -> PR -> human merge`
 
-Use one stable factory-session identity for the lifetime of the outer harness session:
+## Authority
+
+- **Airflow is the only lifecycle scheduler.** Do not create a competing agent loop.
+- Outer harnesses submit, inspect, answer human gates, and verify evidence.
+- Inner stage agents **never commit, push, or open PRs**; the factory owns publication.
+- Cell identity + epoch fence external mutations. Never bypass that boundary.
+- Never place service/GitHub credentials in a stage sandbox.
+- Control-plane/protected paths are human-maintained. Missing, failed, skipped, or cancelled required evidence means **fail closed**.
+- Fix code, not the gate: do not weaken tests, policy, evidence, or protection to make CI green.
+
+## Work
+
+For an outer harness, keep one stable session identity:
 
 ```bash
 scripts/swf_harness.sh codex codex-session-17 --issue 1204
-scripts/swf_harness.sh codex codex-session-17 --issue 1205 --target owner/repo
 ```
 
-The wrapper delegates to `swf submit --harness ... --factory-id ...`. Reuse the same factory id for
-retries from the same session; use a different id for an independent session.
+Read `factory.toml`, the relevant blueprint, tests, and docs before changing behavior. Keep the patch minimal.
 
-## Authority rules
+## Verify from repository root
 
-- Apache Airflow is the only lifecycle scheduler.
-- Factory Cell identity + positive epoch is the external-mutation authority.
-- The outer harness submits, inspects, answers human gates, and verifies evidence; it does not run a
-  competing stage scheduler.
-- Inner stage agents follow the factory artifacts and **never push, commit, or open PRs directly**.
-  The factory owns publication.
-- Never pass backend/service credentials into stage sandboxes.
-- If harness identity cannot be preserved, fail rather than silently submit as an anonymous actor.
+```bash
+uv sync
+uv run ruff check . && uv run ruff format --check .
+uv run pytest
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --locked
+uv run --group airflow pytest tests/test_dag_parity.py tests/test_dag_smoke.py tests/test_dag_stress.py
+uv run swfactory demo
+```
 
-For concrete Codex/Claude/Grok/custom examples, read `docs/harnesses.md`.
+Do not call a change healthy until the required GitHub candidate-readiness fan-in is green for the exact head.
+
+Details: `README.md`, `docs/harnesses.md`, `docs/promotion-policy.md`, `docs/design.md`.

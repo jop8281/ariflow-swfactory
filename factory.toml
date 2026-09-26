@@ -77,7 +77,7 @@ protected = [
   "rustfmt.toml",                       # format gate semantics
   "turbo.json",                         # local build graph; acceleration must not become self-editable
 
-  "CLAUDE.md",                          # the knowledge page every later cell is briefed from
+  "AGENTS.md",                          # canonical agent contract; CLAUDE.md symlinks here\n  "CLAUDE.md",                          # compatibility symlink for Claude Code
   "REVIEW_LIQUID.md",                   # annealed-review authority is human-maintained
   # --- the confinement itself: editing these is how a run would widen its own cage ------------
   "src/swfactory/agent.py",             # tool policy, GUARD_PATH_DENY, guard installation
