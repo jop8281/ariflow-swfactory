@@ -62,7 +62,11 @@ class GitSandbox:
         *,
         junit: list[str] | None = None,
         kill_when: Callable[[GitSandbox, str], bool] | None = None,
+        repo_prefix: str = "",
     ) -> None:
+        # Where the target sits inside the repository. "" is a `git init` of the target itself
+        # (local, docker); "demo/target/" is a full clone (islo, toolset/sbx).
+        self.repo_prefix = repo_prefix
         self.files: dict[str, str] = {"factory.toml": FACTORY_TOML, JUNIT: GREEN}
         self.head = "head0000"
         self.staged: list[str] = []
@@ -115,8 +119,11 @@ class GitSandbox:
             return RunResult(0, "", "", 0.0)
         if cmd == "git diff --cached --quiet":
             return RunResult(1 if self.staged else 0, "", "", 0.0)
-        if match := re.match(r"git diff --name-only (\S+)\.\.(\S+)", cmd):
-            return RunResult(0, "\n".join(self.diffs.get(match.groups(), [])) + "\n", "", 0.0)
+        if match := re.match(r"git diff --name-only( --relative)? (\S+)\.\.(\S+)", cmd):
+            # Real git: root-relative paths unless --relative (verified against git 2.47).
+            prefix = "" if match.group(1) else self.repo_prefix
+            paths = self.diffs.get(match.group(2, 3), [])
+            return RunResult(0, "\n".join(prefix + p for p in paths) + "\n", "", 0.0)
         if "commit -q -m" in cmd:
             before, self.head = self.head, f"{self.head}-{len(self.commits) + 1}"
             self.diffs[(before, self.head)] = sorted(self.staged)
@@ -243,6 +250,31 @@ def test_a_node_that_edits_outside_its_declared_files_is_refused_and_rolled_back
     assert error.value.kind == "policy"
     assert sandbox.head == "head0000", "the workspace is restored to the node's input head"
     assert not ctx.state.has_artifact(f"{ART}/workgraph-execution.json")
+
+
+def test_node_scope_is_target_relative_when_the_cell_is_a_full_clone(tmp_path: Path) -> None:
+    """islo and toolset/sbx cells clone the whole repo and work in ``<repo>/<dir>``.
+
+    Observed live on islo (2026-09-27): the default line's first node edited exactly its declared
+    ``src/calc/core.py`` and was refused as ``demo/target/src/calc/core.py``.
+    """
+    plan = _plan(PlanTask(id="a", title="A", files=["src/a.py"]))
+    sandbox = GitSandbox(repo_prefix="demo/target/")
+    ctx = _ctx(tmp_path, sandbox, NodeAgent(sandbox, {"a": ["src/a.py"]}), plan)
+
+    result = work_stage.build_and_test(ctx)
+
+    assert result.numbers["work_nodes"] == 1
+    assert _report(ctx)["nodes"][0]["changed_files"] == ["src/a.py"]
+
+
+def test_a_full_clone_still_refuses_an_undeclared_file(tmp_path: Path) -> None:
+    plan = _plan(PlanTask(id="a", title="A", files=["src/a.py"]))
+    sandbox = GitSandbox(repo_prefix="demo/target/")
+    ctx = _ctx(tmp_path, sandbox, NodeAgent(sandbox, {"a": ["src/a.py", "src/elsewhere.py"]}), plan)
+
+    with pytest.raises(StageError, match=r"outside its declared scope: \['src/elsewhere.py'\]"):
+        work_stage.build_and_test(ctx)
 
 
 def test_a_failing_suite_after_fan_in_is_repaired_within_the_build_budget(tmp_path: Path) -> None:

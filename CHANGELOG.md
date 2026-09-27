@@ -6,6 +6,9 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Let islo and toolset (sbx) cells, which clone the whole repository, run subdirectory targets end to
+  end: the `Plan.work` scope check compares target-relative paths, and `.gitignore` ignores only the
+  root `target/`, so deliver can add evidence under `demo/target/`.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.

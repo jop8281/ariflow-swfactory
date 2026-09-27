@@ -182,7 +182,7 @@ def test_workgraph_retry_resumes_checkpoint_and_uses_new_attempt_identity(monkey
     def sh(_ctx, command: str, *, timeout_s: int = 600) -> str:
         del timeout_s
         if command.startswith("git diff --name-only "):
-            span = command.split()[3]
+            span = next(token for token in command.split() if ".." in token)  # after any flags
             before, after = span.split("..", 1)
             return changed[(before, after)]
         return ""
