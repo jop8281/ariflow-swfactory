@@ -75,7 +75,7 @@ def test_long_failure_is_archived_exactly_and_compacted_with_stable_handle(tmp_p
     assert packed is not None
     assert packed.ref.handle == f"obs:sha256:{packed.ref.sha256}"
     assert packed.ref.sandbox_path in ctx.sb.files
-    source = ctx.state.read_artifact(packed.ref.state_path)
+    source = ctx.state.read_control(packed.ref.state_path)
     assert source == ctx.sb.files[packed.ref.sandbox_path]
     assert "EARLY-EVIDENCE" in source
     assert "AssertionError: expected 7" in packed.prompt_text
@@ -111,7 +111,7 @@ def test_sensitive_full_log_stays_host_only_and_never_enters_agent_prompt(tmp_pa
     assert packed is not None
     assert packed.ref.sandbox_path is None
     assert packed.ref.sensitivity_kinds == ("github-token",)
-    assert token in ctx.state.read_artifact(packed.ref.state_path)
+    assert token in ctx.state.read_control(packed.ref.state_path)
     assert token not in packed.prompt_text
     assert "host-only" in packed.prompt_text
     assert not any(path.startswith(".factory/observations/") for path in ctx.sb.files)
@@ -208,7 +208,7 @@ def test_large_review_diff_is_exactly_archived_and_packed_once_for_fanout(tmp_pa
 
     assert packed is not None
     assert packed.handle == f"diff:sha256:{packed.sha256}"
-    assert ctx.state.read_artifact(packed.state_path) == diff
+    assert ctx.state.read_control(packed.state_path) == diff
     assert ctx.sb.files[packed.sandbox_path] == diff
     assert packed.prompt_bytes < packed.source_bytes
     assert packed.estimated_replayed_bytes_avoided == packed.saved_bytes_per_prompt * 3
@@ -225,6 +225,27 @@ def test_large_review_diff_is_exactly_archived_and_packed_once_for_fanout(tmp_pa
     assert public["fanout"] == 3
     assert public["estimated_replayed_bytes_avoided"] == packed.estimated_replayed_bytes_avoided
     assert "generated review line" not in json.dumps(public)
+
+
+def test_host_only_archives_are_never_mirrored_into_the_cell_at_deliver(tmp_path: Path) -> None:
+    """``deliver`` rebuilds the evidence chain with ``state.mirror_all(sb)``: every ARTIFACT lands in
+    the workspace. Observed live (sbx, 2026-09-27): a large review diff archived as an artifact was
+    mirrored to ``harness/review-diffs/<sha>.patch`` and deliver refused it as a file outside the
+    reviewed commit stream -- and a secret-shaped observation would have been copied into the cell.
+    """
+    ctx = FakeCtx(tmp_path)
+    review = pack_review_diff(ctx, diff=_large_review_diff(), base_sha="a" * 40, head_sha="b" * 40)
+    stdout = "".join(f"noise {i:04d} lorem ipsum dolor sit amet\n" for i in range(600))
+    failure = pack_failure_observation(
+        ctx, command="pytest -q", exit_code=1, timed_out=False, stdout=stdout, stderr="boom\n"
+    )
+    assert review is not None and failure is not None
+
+    mirrored = FakeCtx(tmp_path / "cell").sb
+    ctx.state.mirror_all(mirrored)
+
+    assert not [path for path in mirrored.files if path.startswith("harness/")]
+    assert ctx.state.has_control(review.state_path) and ctx.state.has_control(failure.ref.state_path)
 
 
 def test_review_diff_handle_is_stable_and_archive_is_reused(tmp_path: Path) -> None:

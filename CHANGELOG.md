@@ -6,6 +6,9 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Keep the exact review-diff and failure-observation archives in host-owned control state. They were
+  run artifacts, so deliver mirrored them into the cell and refused the run; a secret-shaped
+  observation was copied into the cell the same way.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.

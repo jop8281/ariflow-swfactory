@@ -134,10 +134,12 @@ def _archive(
     state_path = f"harness/observations/{digest}.txt"
     sandbox_path = f".factory/observations/{digest}.txt"
 
+    # Host-owned CONTROL state, not an artifact: deliver mirrors every artifact into the cell and
+    # commits the chain, so an artifact here would ship raw (possibly secret-shaped) output.
     try:
-        existing = ctx.state.read_artifact(state_path)
+        existing = ctx.state.read_control(state_path)
     except FileNotFoundError:
-        ctx.state.write_artifact(state_path, source)
+        ctx.state.write_control(state_path, source)
     else:
         if _sha256(existing) != digest or existing != source:
             raise ObservationIntegrityError(f"observation archive collision for sha256:{digest}")
@@ -338,7 +340,7 @@ def pack_failure_observation(
         "saved_bytes": packed.saved_bytes,
         "quotes": [asdict(quote) | {"sha256": quote.sha256} for quote in quotes],
     }
-    ctx.state.write_artifact(
+    ctx.state.write_control(
         f"harness/observations/{ref.sha256}.receipt.json",
         json.dumps(internal, indent=2, sort_keys=True) + "\n",
     )
@@ -593,10 +595,12 @@ def pack_review_diff(
     digest = _sha256(diff)
     state_path = f"harness/review-diffs/{digest}.patch"
     sandbox_path = f".factory/observations/review-diff-{digest}.patch"
+    # Control state, like observations: an artifact would be mirrored into the cell at deliver and
+    # refused there as a file outside the reviewed commit stream.
     try:
-        existing = ctx.state.read_artifact(state_path)
+        existing = ctx.state.read_control(state_path)
     except FileNotFoundError:
-        ctx.state.write_artifact(state_path, diff)
+        ctx.state.write_control(state_path, diff)
     else:
         if existing != diff or _sha256(existing) != digest:
             raise ObservationIntegrityError(f"review diff archive collision for sha256:{digest}")
