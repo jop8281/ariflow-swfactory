@@ -5,15 +5,14 @@ run: something must write the issues it drains, and a person choosing them by ha
 does not scale. This module reads what the factory has already measured about itself and proposes
 the work, ranked.
 
-The whole risk of a self-improving loop is that it proposes things nobody can check, then reports
-success against its own prose. One invariant prevents that:
+The risk of a self-improving loop is that it proposes things nobody can check, then reports
+success against its own prose. One prerequisite for review is:
 
     a proposal is refused unless its done-condition is a command an existing gate already runs.
 
-So every work order here ends in `uv run pytest tests/test_module_reachability.py`, or
-`python -m swfactory.capability_inventory`, or `swfactory metrics` -- checks that were already
-load-bearing before this module existed. A proposal that cannot be falsified is not emitted at all,
-which is the difference between a loop that converges and one that congratulates itself.
+Every work order names an existing import-graph, inventory, or metrics audit. Those audits measure
+their own surfaces, not the truth of an arbitrary done-condition. Completion still requires review
+of the execution evidence for the named scope; changing an inventory label is not validation.
 
 It proposes. It does not promote: the liquid line's two human gates and the merge button are
 unchanged, and nothing here can reach them.
@@ -43,7 +42,7 @@ VERIFIABLE_CHECKS: frozenset[str] = frozenset(
 class Source(StrEnum):
     """Where a signal was measured. Ordering is the tie-break, so it is deliberate."""
 
-    REACHABILITY = "reachability"  # code that runs nothing
+    REACHABILITY = "reachability"  # modules outside the declared entrypoint import graph
     CAPABILITY = "capability"  # a claim the inventory cannot call validated
     DELIVERY = "delivery"  # how the line actually performs
 
@@ -67,7 +66,7 @@ class ProposalError(ValueError):
 
 @dataclass(frozen=True)
 class DoneWhen:
-    """The condition that retires a work order, and the command that decides it."""
+    """A reviewable completion condition and an existing audit that supports its assessment."""
 
     check: str
     predicate: str
@@ -112,7 +111,7 @@ class WorkOrder:
         return (
             f"{self.rationale}\n\n"
             f"**Done when:** {self.done_when.predicate}\n\n"
-            f"Verified by:\n\n```sh\n{self.done_when.check}\n```\n"
+            f"Supporting audit (also review the evidence required above):\n\n```sh\n{self.done_when.check}\n```\n"
         )
 
 
@@ -137,7 +136,7 @@ class Assessment:
 
 
 def ledger_signals(ledger: Mapping[str, str], sizes: Mapping[str, int]) -> list[Signal]:
-    """Unreachable modules, weighted by the lines that run nothing."""
+    """Import-unreachable modules, weighted by size; this is not execution coverage."""
     return [
         Signal(Source.REACHABILITY, module, float(sizes.get(module, 0)), reason)
         for module, reason in sorted(ledger.items())
@@ -193,10 +192,20 @@ def capability_signals(document: Mapping[str, Any], *, root: Path | None = None)
 
         files, jobs = references(str(claim.get("test", "")))
         if root is not None:
-            resolved = any((root / name).exists() for name in files) or any(job in known_ci for job in jobs)
-            if not resolved:
+            missing = [name for name in files if not (root / name).is_file()]
+            missing += [f"ci:{job}" for job in jobs if job not in known_ci]
+            if not files and not jobs:
                 distance += 1.0
                 detail.append("no resolvable test")
+            elif missing:
+                distance += 1.0
+                detail.append("unresolved tests: " + ", ".join(missing))
+
+        # The inventory already names the work needed to graduate an experiment. Preserve it in
+        # the proposal instead of reducing every capability to "change its state to validated".
+        follow_up = claim.get("follow_up")
+        if isinstance(follow_up, str) and follow_up.strip():
+            detail.append("follow-up: " + follow_up.strip())
 
         environment = str(claim.get("environment", "")).lower()
         if any(word in environment for word in needs_provisioning):
@@ -244,8 +253,8 @@ def _order_for(signal: Signal) -> WorkOrder:
             title=f"Wire or retire `swfactory.{signal.key}`",
             rationale=(
                 f"`src/swfactory/{signal.key.replace('.', '/')}.py` is {int(signal.weight)} lines that no "
-                f"entrypoint reaches ({signal.detail}). Either give it a caller or delete it; carrying it "
-                f"unreached is the cost without the benefit."
+                f"declared entrypoint imports ({signal.detail}). Give it a meaningful caller with execution "
+                f"evidence, or retire it. Import reachability alone does not establish runtime integration."
             ),
             done_when=DoneWhen(
                 "uv run pytest tests/test_module_reachability.py",
@@ -259,12 +268,15 @@ def _order_for(signal: Signal) -> WorkOrder:
             key=signal.key,
             title=f"Validate or withdraw the `{signal.key}` capability claim",
             rationale=(
-                f"`config/capability-inventory.json` carries `{signal.key}` as {signal.detail}. A claim that "
-                f"never reaches `validated` reads to a user exactly like one that did."
+                f"`config/capability-inventory.json` carries `{signal.key}` as {signal.detail}. "
+                f"Retain candidate- and environment-specific execution evidence before strengthening the "
+                f"claim. The inventory audit checks declarations and references; it does not run the cited "
+                f"tests or prove this capability. Keeping an experiment explicitly experimental is valid."
             ),
             done_when=DoneWhen(
                 "uv run python -m swfactory.capability_inventory",
-                f"`{signal.key}` is `validated`, or withdrawn from the inventory",
+                f"`{signal.key}` has retained execution evidence for its declared scope and its support "
+                f"claim passes review, or the capability is explicitly retired; the inventory audit also passes",
             ),
             weight=signal.weight,
         )
@@ -306,11 +318,11 @@ def propose(
     stalled_keys: Iterable[str] = (),
     readmit_stalled: bool = False,
 ) -> Assessment:
-    """Rank the evidence and emit the work the factory can verify it finished.
+    """Rank measured signals and emit work with a reviewable completion condition.
 
     A work order whose done-condition does not name a check this repository runs is refused and
-    recorded, never emitted. That refusal is the loop's safety property: it cannot ask for something
-    whose completion it would have to take on trust.
+    recorded, never emitted. Naming a check is necessary, but it does not prove that running it
+    establishes the whole predicate. Capability graduation still needs retained execution evidence.
 
     ``stalled_keys`` are demoted to the back of their source. Detecting a stall and then proposing
     the same thing at position one anyway is the loop ignoring its own signal: the budget goes on

@@ -1,5 +1,9 @@
 # Rust manager ↔ Airflow binding
 
+Status: proposed binding, not the current managed execution path. Today the Rust operator calls
+the Python backend and Airflow executes Python stages. Domain/protocol types alone do not migrate
+that path. See the [system map](system-map.md) and [Rust RFC](rfc-rust-first-factory-manager.md).
+
 Airflow remains the lifecycle scheduler. The Rust manager owns factory semantics.
 
 The binding is deliberately small:

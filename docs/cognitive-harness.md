@@ -1,5 +1,10 @@
 # Cognitive Harness: Executable Mind for the Dark Software Factory
 
+Status: experimental domain contracts and research model. The Rust reality boundary described
+below is the migration destination. Managed state, stages, and publication currently execute in the
+Python backend/application; Rust is the operator and shared domain-contract implementation. See the
+[system map](system-map.md) for current ownership and graduation criteria.
+
 ## Thesis
 
 The software factory is not merely a workflow that calls agents.
