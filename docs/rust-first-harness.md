@@ -1,5 +1,9 @@
 # Rust-first harness with Airflow lifecycle binding
 
+Status: migration destination. The current managed runtime remains Python backend/application code
+plus Airflow; Rust provides the operator and shared domain contracts. The rules below apply to the
+target and to each slice after its managed callers have migrated. See the [system map](system-map.md).
+
 The target architecture is deliberately asymmetric:
 
 - **Rust owns the harness, control-plane application logic, execution contracts, recovery, evidence, CLI/TUI and provider adapters.**

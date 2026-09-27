@@ -6,6 +6,14 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
+  milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
+  consolidate the duplicate runtime boundary table into the canonical ownership map.
+- Keep `swfactory improve --json` and `--as-issues` stdout machine-consumable by sending status
+  diagnostics to stderr. Preserve capability graduation requirements in proposals and detect each
+  missing test reference, including directories incorrectly cited as test files. Clarify that an
+  inventory audit does not execute the cited tests or establish runtime support.
+
 ## [2.3.0] - 2026-09-24
 
 - Close the live branch-protection gap without weakening the declared policy: the historical protected

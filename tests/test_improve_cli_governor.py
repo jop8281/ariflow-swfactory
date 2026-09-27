@@ -9,6 +9,7 @@ annealer at all, and that a refusal lands on enrolment WITHOUT taking the assess
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -68,3 +69,19 @@ def test_the_cap_is_operator_settable_in_both_directions() -> None:
     assert tight.exit_code == 1, tight.output
     loose = _improve("--budget", "5", "--enrolled", "3", "--enrol-cap", "99", "--as-issues")
     assert loose.exit_code == 0, loose.output
+
+
+def test_json_stdout_is_one_document_even_when_the_queue_is_full() -> None:
+    result = _improve("--json", "--enrolled", "55")
+    assert result.exit_code == 0, result.output
+    assessment = json.loads(result.stdout)
+    assert assessment["schema_version"] == 1
+    assert assessment["signals"] and len(assessment["orders"]) == 1
+    assert "budget=1" in result.stderr
+
+
+def test_issue_command_stdout_contains_no_status_banner() -> None:
+    result = _improve("--as-issues", "--budget", "1")
+    assert result.exit_code == 0, result.output
+    assert result.stdout.startswith("gh issue create ")
+    assert "budget=1" in result.stderr

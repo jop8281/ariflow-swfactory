@@ -15,7 +15,7 @@ reviewable pull request with retained evidence. People decide what reaches `main
 [software atelier workflow](docs/software-atelier.md) for the method and its current runtime
 boundaries.
 
-[Quickstart](#quickstart) · [Software atelier](docs/software-atelier.md) · [Liquid methodology](#the-liquid-methodology) · [Physics](#physics-of-the-factory) ·
+[Quickstart](#quickstart) · [Flow, concepts, and finish line](docs/system-map.md) · [Software atelier](docs/software-atelier.md) · [Liquid methodology](#the-liquid-methodology) · [Physics](#physics-of-the-factory) ·
 [Future factory](docs/future-factory.md) · [Run a real issue](#run-a-real-issue) · [Operator guide](docs/swf.md) ·
 [Illustrated walkthrough](https://zozo123.github.io/ariflow-swfactory/#factory-demo) · [Agent skills](#agent-skills)
 
@@ -88,7 +88,7 @@ The method has six operating rules:
 3. **Fence and reconcile mutations.** Bind effects to `(cell_id, epoch, operation_key)`. Reject stale
    writers, deduplicate retries, and observe ambiguous external outcomes before replay.
 4. **Explore within limits.** Use independent lanes with clear outputs, budgets, deadlines, and
-   cancellation. Domain × concern matrices reveal gaps; issue count measures coverage.
+   cancellation. Domain × concern matrices reveal gaps; retained results establish coverage.
 5. **Collapse before integration.** Compare alternatives against shared contracts, keep the canonical
    implementation, migrate callers, and delete superseded paths. PR boundaries follow coherent changes.
 6. **Promote evidence for the exact candidate.** Validate the stabilization result, check its SHA has
@@ -141,43 +141,24 @@ queue posture, but it cannot approve, publish, merge, mint credentials or promot
 snapshot locally with `swfactory phase-assess phase.json --json` or `swf phase phase.json --json`. See
 [phase-aware control](docs/phase-control.md).
 
-### Cognitive harness: the factory as an executable mind
+### Cognitive harness and acceleration
 
-Assume the factory runs inside an AI harness. The harness is the organism; Airflow is its temporal
-nervous system; Python is the experimental cortex; Rust is the constitutional reality boundary.
-The cognitive layer is explicitly split into:
+The experimental cognitive contracts separate **System 1** proposal generation from **System 2**
+measurement and convergence. Phase control recommends search posture; retained observations inform
+later search. None supplies approval or mutation authority. Model, prompt, and reasoning style may
+vary; evidence must identify the exact candidate, inputs, policy, and procedure measured.
 
-- **System 1** — stochastic world generation: heterogeneous agents, repair/rethink/scratch,
-  disposable worktrees/sandboxes, and exploration-only stochastic fields such as Jev;
-- **System 2** — measurement and entropy destruction: freeze, replay, adversarial verification,
-  gauge fixing, pruning, deterministic convergence;
-- **metacognition** — phase control deciding what kind of thinking is useful now;
-- **memory consolidation** — observation -> trace -> correlated pattern -> candidate belief ->
-  memory crystal;
-- **authority** — outside cognition: exact Cell/epoch/source/recipe/policy/evidence/effect identity
-  crosses only through the Rust authority kernel.
+The current managed authority and stage implementation lives in the **Python backend/application**;
+Rust supplies the operator CLI/TUI and shared domain contracts. The Rust manager is a migration
+destination, not the current execution path. See the [system map](docs/system-map.md) for ownership
+and [cognitive harness](docs/cognitive-harness.md) for the research model.
 
-The code distinguishes **gauge-dependent** representation (model, prompt, agent identity, reasoning
-style) from **gauge-invariant** observables (candidate/source/recipe/policy/evidence/artifact/effect
-digests). Promotion may depend only on invariants. Equivalent worlds may be canonicalized; inequivalent
-worlds still require evidence. See [Cognitive Harness: Executable Mind](docs/cognitive-harness.md).
-
-That last row matters. Turborepo 2.11 can put uv and Cargo work into one content-addressed task
+Turborepo 2.11 can put uv and Cargo work into one content-addressed task
 graph. In this repository it is an **experimental accelerator inside the verification layer**, not a
 second lifecycle scheduler. Cargo now has a real repository-root workspace, and uv exposes a real workspace aggregate plus the
 shared contract-fixture member through native discovery. Native Cargo tasks execute the Rust side;
 the factory's Python verifier is an explicit root uv task because Turbo's generic native root pytest
 is intentionally repository-wide and would over-invalidate Rust-source changes.
-
-```text
-             exploration                         convergence
- high entropy ----------------------------------------------> low entropy
-
- disposable compute     local task graph      digest-bound evidence
- agents / VMs / cache  ------------------>   approvals / candidate SHA
-        |                                             |
-        +---------------- Airflow + Cell authority ---+
-```
 
 Turbo asks, "have these bytes already done this work?" The factory asks, "are these exactly the
 bytes that were approved and independently verified?" The first is a velocity optimization; the
@@ -209,6 +190,9 @@ The full end-state and graduation path are in [Future Factory](docs/future-facto
 machine-readable architecture contract in [`config/future-factory.yaml`](config/future-factory.yaml).
 
 ## Architecture and lifecycle
+
+Start with the [system map](docs/system-map.md) for the complete vocabulary, current-versus-target
+ownership, and evidence required to finish each engineering milestone.
 
 | Component | Owns | Entry point |
 | --- | --- | --- |
@@ -490,6 +474,7 @@ acceptance standard and explain the remaining enforcement work.
 
 | Goal | Start here |
 | --- | --- |
+| Understand the flow, concepts, current ownership, and finish line | [System map](docs/system-map.md) |
 | Understand and apply Liquid development | [Methodology](docs/liquid-methodology.md) |
 | Deploy or run against GitHub | [Operations](OPERATIONS.md), [Docker](docs/docker.md), [islo](docs/islo.md) |
 | Run the factory against itself | [Self-hosting](docs/selfhost.md) |
@@ -500,6 +485,8 @@ acceptance standard and explain the remaining enforcement work.
 | Extend or review the factory | [Contributing](CONTRIBUTING.md), [review policy](REVIEW.md), [changelog](CHANGELOG.md) |
 
 Contribute a coherent change with an explicit invariant, failure behavior, evidence, and a plan to
-remove superseded paths. See the [current execution plan](https://github.com/zozo123/ariflow-swfactory/issues/2040)
-for the active backlog and dependency gates. The earlier [convergence roadmap #2022](https://github.com/zozo123/ariflow-swfactory/issues/2022)
-is retained as historical context. Licensed under [Apache 2.0](LICENSE).
+remove superseded paths. Use the [current execution plan](docs/system-map.md#a-finish-line-that-can-be-demonstrated)
+and [open issues](https://github.com/zozo123/ariflow-swfactory/issues?q=is%3Aissue%20is%3Aopen) to choose work.
+The earlier [execution plan #2040](https://github.com/zozo123/ariflow-swfactory/issues/2040) and
+[convergence roadmap #2022](https://github.com/zozo123/ariflow-swfactory/issues/2022) are retained as
+historical context. Licensed under [Apache 2.0](LICENSE).

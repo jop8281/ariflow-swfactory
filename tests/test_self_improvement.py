@@ -462,3 +462,32 @@ def test_without_a_root_the_scoring_falls_back_to_state_alone() -> None:
     (signal,) = capability_signals(document)
 
     assert signal.weight == 2.0  # experimental(1) + environment(1); the test term needs a root
+
+
+@pytest.mark.parametrize("missing", ["tests/missing.py", "ci:missing-job"])
+def test_one_resolvable_reference_does_not_hide_missing_verification(missing: str) -> None:
+    document = {
+        "claims": [
+            _claim("complete"),
+            _claim("partial", test=f"tests/test_self_improvement.py; {missing}"),
+        ]
+    }
+    signals = {s.key: s for s in capability_signals(document, root=ROOT)}
+    assert signals["partial"].weight > signals["complete"].weight
+    assert missing in signals["partial"].detail
+
+
+def test_a_directory_cannot_supply_the_cited_test(tmp_path: Path) -> None:
+    (tmp_path / "tests" / "test_empty.py").mkdir(parents=True)
+    (signal,) = capability_signals({"claims": [_claim("empty", test="tests/test_empty.py")]}, root=tmp_path)
+    assert signal.weight == 2.0
+    assert "unresolved tests: tests/test_empty.py" in signal.detail
+
+
+def test_a_proposal_preserves_graduation_work_and_the_limits_of_its_audit() -> None:
+    claim = _claim("provider")
+    claim["follow_up"] = "Retain a live cancellation and recovery run against the configured gateway."
+    (order,) = propose(capability_signals({"claims": [claim]}), budget=1).orders
+    assert claim["follow_up"] in order.as_issue()
+    assert "does not run the cited tests" in order.as_issue()
+    assert "retained execution evidence" in order.done_when.predicate

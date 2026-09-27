@@ -1,5 +1,9 @@
 # Managed software factory implementation map
 
+Historical integration record for epic #22. The review sequence and session policy below describe
+that earlier work, not the current open queue. Start with the [system map](system-map.md) for the
+architecture and finish-line milestones, and inspect GitHub for current PR state.
+
 This file is the review/merge map for epic #22. Airflow remains the only scheduler; all issue-specific execution stays bounded inside fixed lifecycle DAGs.
 
 ## Foundation

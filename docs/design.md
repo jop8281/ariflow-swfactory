@@ -1,5 +1,8 @@
 # Design: the factory, its DAGs, and its boundaries
 
+Start with the [system map](system-map.md) for the flow, vocabulary, current ownership, and graduation
+criteria. This document expands the implemented Python/Airflow route.
+
 Reference for the parts the README only names: how a blueprint declares a route, what the generated
 Airflow DAG does, how metrics and bands close the loop, and the decisions (and accepted risks)
 behind all of it.
@@ -94,7 +97,7 @@ otherwise.
 
 ## Airflow
 
-The dependency groups pin `apache-airflow==3.3.2` and standard provider 1.19.0. The optional CI
+The dependency groups pin `apache-airflow==3.3.2` and standard provider 1.19.0. The mandatory CI
 job `airflow-main` is configured to run DAG parity and smoke against upstream
 `apache/airflow@main` so API drift in the task SDK or HITL operators can surface before a release.
 

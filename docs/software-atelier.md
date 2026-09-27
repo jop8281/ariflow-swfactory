@@ -1,5 +1,8 @@
 # The Software Atelier
 
+For the implemented stage flow, vocabulary, current ownership, and ordered acceptance milestones,
+start with the [system map](system-map.md). This page develops the method and its judgment boundaries.
+
 ## Purpose
 
 The software factory is an **atelier**: a place where people and agents can explore, make, compare,

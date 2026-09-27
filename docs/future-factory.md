@@ -1,6 +1,9 @@
 # Future Factory: recursive Liquid software engineering
 
-This document is the executable architecture north star for the repository.
+This document is the architecture north star for the repository. It combines experimental contracts
+with proposed integration; its end-state diagrams are not a description of the deployed runtime.
+The [system map](system-map.md) distinguishes the current Python backend/application and Rust
+operator from the proposed Rust manager, and defines the evidence needed for graduation.
 
 The compact form is:
 
