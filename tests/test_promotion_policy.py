@@ -485,6 +485,59 @@ def test_live_diff_audit_rejects_a_green_unverified_token_gap(tmp_path: Path) ->
     assert any("exits 0" in problem for problem in problems)
 
 
+def _promotion_repo(tmp_path: Path) -> Path:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+        (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
+    return workflows / "promotion-policy.yml"
+
+
+def test_live_diff_audit_rejects_continue_on_error(tmp_path: Path) -> None:
+    drift = _promotion_repo(tmp_path)
+    original = drift.read_text()
+    rewritten = original.replace(
+        "      - name: The policy agrees with the live repository settings\n",
+        "      - name: The policy agrees with the live repository settings\n        continue-on-error: true\n",
+        1,
+    )
+    assert rewritten != original
+    drift.write_text(rewritten)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("continue-on-error" in problem for problem in problems)
+
+
+def test_live_diff_audit_rejects_a_masked_diff_status(tmp_path: Path) -> None:
+    drift = _promotion_repo(tmp_path)
+    original = drift.read_text()
+    rewritten = original.replace(
+        "uv run python scripts/promotion_policy.py diff",
+        "uv run python scripts/promotion_policy.py diff || true",
+        1,
+    )
+    assert rewritten != original
+    drift.write_text(rewritten)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("suppresses the live diff status" in problem for problem in problems)
+
+
+def test_live_diff_audit_rejects_a_positive_token_test_that_skips_the_diff(tmp_path: Path) -> None:
+    drift = _promotion_repo(tmp_path)
+    original = drift.read_text()
+    rewritten = original.replace('if [ -z "${GH_TOKEN:-}" ]; then', 'if [ -n "${GH_TOKEN:-}" ]; then', 1)
+    rewritten = rewritten.replace("            exit 1\n", "", 1)
+    assert rewritten != original
+    drift.write_text(rewritten)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("without a live diff" in problem for problem in problems)
+
+
 def test_live_diff_audit_rejects_skipping_the_diff_when_the_token_is_missing(tmp_path: Path) -> None:
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
