@@ -1,0 +1,94 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 73926,
+  "duration_ms": 74166,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 1736,
+  "is_error": false,
+  "iteration": 3,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 26476,
+      "cacheReadInputTokens": 201435,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 0.4213825,
+      "inputTokens": 618,
+      "maxOutputTokens": 64000,
+      "outputTokens": 6084,
+      "provider": "firstParty",
+      "thinkingTokens": 2283,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 15,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "d5177ed7-9883-4166-94ff-c27a276a2ab5",
+  "stage": "build",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "files_changed": [
+      "deploy/islo/deploy.sh",
+      "docs/islo.md",
+      "docs/selfhost.md"
+    ],
+    "summary": "Implemented the `docs` node of SELFHOST-2: stated the eight-host allowlist at the three human-maintained prose sites. `deploy/islo/deploy.sh`'s orchestrator `allow:` prerequisite comment now lists `releases.astral.sh` and `release-assets.githubusercontent.com` alongside `islo.dev` / `releases.islo.dev`, noting they are the uv installer's redirect targets and that this profile runs the same installer. Both gateway host lists in `docs/islo.md` (the Agents row of the trust table and the `gateway` row of the bootstrap table) gained the two hosts. The `docs/selfhost.md` \"what is not proven\" paragraph no longer calls `islo use --init minimal` unsettled: it now records that `--init minimal` does execute the repo-root `islo.yaml` setup script, that under the former six-host allowlist the `uv` install died with `curl: (22) The requested URL returned error: 403`, that the cause is the `astral.sh` installer's redirect to `releases.astral.sh` and its GitHub-asset fallback to `release-assets.githubusercontent.com`, and the observation stamp (2026-09-27, islo CLI 0.53.1) \u2014 while preserving the adjacent unproven claims (no real-model run via `ANTHROPIC_API_KEY`, no islo run via `ISLO_API_KEY`, no merged self-authored pull request). Only the three declared files were touched; no protected path was modified. I verified each edit against the pinned assertions in tests/test_doctor.py:276-299 by reading the final text (the deploy.sh `allow:`-to-`islo environment create` slice, the two islo.md rows, and selfhost.md's required/forbidden substrings), but this environment exposes no shell tool, so I could not execute `uv run --group dev pytest` to confirm the suite green."
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 41,
+  "total_cost_usd": 0.4213825,
+  "ttft_ms": 2192,
+  "ttft_stream_ms": 1736,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 26476
+    },
+    "cache_creation_input_tokens": 26476,
+    "cache_read_input_tokens": 201435,
+    "inference_geo": "",
+    "input_tokens": 618,
+    "iterations": [],
+    "output_tokens": 6084,
+    "output_tokens_details": {
+      "thinking_tokens": 2283
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "02e2033f-6ef1-43c5-8720-dee98113918a"
+}

@@ -1,0 +1,15 @@
+{"ts": "2026-09-27T11:45:00+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/src/swfactory/doctor.py", "decision": "allow"}
+{"ts": "2026-09-27T11:45:02+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/deploy/islo/bootstrap.sh", "decision": "allow"}
+{"ts": "2026-09-27T11:45:15+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/deploy/islo/bootstrap.sh", "decision": "allow"}
+{"ts": "2026-09-27T11:47:26+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/tests/test_doctor.py", "decision": "allow"}
+{"ts": "2026-09-27T11:47:29+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/tests/test_doctor.py", "decision": "allow"}
+{"ts": "2026-09-27T11:49:31+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/deploy/islo/deploy.sh", "decision": "allow"}
+{"ts": "2026-09-27T11:49:36+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/docs/islo.md", "decision": "allow"}
+{"ts": "2026-09-27T11:49:37+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/docs/islo.md", "decision": "allow"}
+{"ts": "2026-09-27T11:49:44+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/docs/selfhost.md", "decision": "allow"}
+{"ts": "2026-09-27T11:59:48+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/src/swfactory/backend/service.py", "decision": "allow"}
+{"ts": "2026-09-27T12:01:01+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/src/swfactory/backend/service.py", "decision": "allow"}
+{"ts": "2026-09-27T12:15:37+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/src/swfactory/backend/service.py", "decision": "allow"}
+{"ts": "2026-09-27T12:15:57+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/docs/selfhost.md", "decision": "allow"}
+{"ts": "2026-09-27T12:16:02+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/deploy/islo/deploy.sh", "decision": "allow"}
+{"ts": "2026-09-27T12:16:07+00:00", "tool": "Edit", "path_or_cmd": "/workspace/repo/deploy/islo/deploy.sh", "decision": "allow"}

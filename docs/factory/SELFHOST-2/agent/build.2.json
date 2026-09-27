@@ -1,0 +1,92 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 166791,
+  "duration_ms": 167063,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 3574,
+  "is_error": false,
+  "iteration": 2,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 45932,
+      "cacheReadInputTokens": 345552,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 0.789931,
+      "inputTokens": 656,
+      "maxOutputTokens": 64000,
+      "outputTokens": 13072,
+      "provider": "firstParty",
+      "thinkingTokens": 6916,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 15,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "a24c9939-b99b-4d3a-87c2-b2104713bf8e",
+  "stage": "build",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "files_changed": [
+      "tests/test_doctor.py"
+    ],
+    "summary": "Added the hermetic allowlist test section to tests/test_doctor.py (the `tests` node of SELFHOST-2): a module-level `allow_hosts_from_shell(text, source)` helper that reads bootstrap.sh's single-line `ALLOW_HOSTS=(...)` array as text (no shell execution, no network) and raises an AssertionError naming the file and marker when the marker is absent, the array is unclosed, or the parse yields no hosts; a full-tuple pin of `doctor.GATEWAY_ALLOW_HOSTS` against the eight expected hosts (six existing unchanged and in place, plus releases.astral.sh and release-assets.githubusercontent.com) with a bare-lowercase-hostname shape check; a `gateway_fix` test pinning the `islo gateway create --name swfactory --default-action deny --internet-access true` prefix, the `add-rule --host <host> --action allow` substring and every host; a doctor/bootstrap parity test asserting set equality with a symmetric-difference message; a loud-failure test for the parse helper; coarse prose checks for deploy/islo/deploy.sh's orchestrator `allow:` comment and both docs/islo.md gateway rows; a docs/selfhost.md check that the `--init minimal` uncertainty is retired while the adjacent unproven-evidence claims (ANTHROPIC_API_KEY, ISLO_API_KEY, unmerged self-authored PR) survive and the 403 / redirect-host / 2026-09-27 / 0.53.1 evidence is recorded; and a hermeticity test pinning that the helper takes text, not a command. This environment has no shell/execution tool, so pytest was NOT run; verification was by inspection of doctor.py, bootstrap.sh, deploy.sh and the two docs, which confirms the six code-facing tests match the already-committed allowlist work, while the two prose tests (test_prose_allowlists_name_new_hosts, test_selfhost_doc_settles_init_minimal) fail against the current tree by design \u2014 deploy.sh, docs/islo.md and docs/selfhost.md are the later `docs` node's files and were left untouched."
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 56,
+  "total_cost_usd": 0.789931,
+  "ttft_ms": 3752,
+  "ttft_stream_ms": 3574,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 45932
+    },
+    "cache_creation_input_tokens": 45932,
+    "cache_read_input_tokens": 345552,
+    "inference_geo": "",
+    "input_tokens": 656,
+    "iterations": [],
+    "output_tokens": 13072,
+    "output_tokens_details": {
+      "thinking_tokens": 6916
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "8157d111-9500-4f6b-ad57-62c9decf301f"
+}

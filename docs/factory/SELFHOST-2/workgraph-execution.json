@@ -1,0 +1,96 @@
+{
+  "agent_calls": 4,
+  "declared_conflicts": [],
+  "final_head": "b24b4623342850942f38f8ce7fd854812f925aba",
+  "input_head": "8ff967de3951aade23001f33dc9ce35cbb0b583c",
+  "mode": "shared_workspace_serial",
+  "nodes": [
+    {
+      "agent_call": 2,
+      "changed_files": [
+        "tests/test_doctor.py"
+      ],
+      "declared_files": [
+        "tests/test_doctor.py"
+      ],
+      "depends_on": [],
+      "duration_s": 176.689,
+      "input_head": "75cc4543da450f5d79ee4d62093a96cc835643d7",
+      "layer": 0,
+      "node_id": "tests",
+      "output_head": "a1e61fd3200d34f2709b63d3c629e4da76162c19",
+      "parallel_safe_hint": true,
+      "state": "ok"
+    },
+    {
+      "agent_call": 1,
+      "changed_files": [
+        "deploy/islo/bootstrap.sh",
+        "src/swfactory/doctor.py"
+      ],
+      "declared_files": [
+        "src/swfactory/doctor.py",
+        "deploy/islo/bootstrap.sh"
+      ],
+      "depends_on": [],
+      "duration_s": 82.368,
+      "input_head": "8ff967de3951aade23001f33dc9ce35cbb0b583c",
+      "layer": 0,
+      "node_id": "allowlist",
+      "output_head": "75cc4543da450f5d79ee4d62093a96cc835643d7",
+      "parallel_safe_hint": true,
+      "state": "ok"
+    },
+    {
+      "agent_call": 3,
+      "changed_files": [
+        "deploy/islo/deploy.sh",
+        "docs/islo.md",
+        "docs/selfhost.md"
+      ],
+      "declared_files": [
+        "deploy/islo/deploy.sh",
+        "docs/islo.md",
+        "docs/selfhost.md"
+      ],
+      "depends_on": [
+        "allowlist"
+      ],
+      "duration_s": 83.522,
+      "input_head": "a1e61fd3200d34f2709b63d3c629e4da76162c19",
+      "layer": 1,
+      "node_id": "docs",
+      "output_head": "b77afa9eebe5a928789ac2e637772a86060f4413",
+      "parallel_safe_hint": false,
+      "state": "ok"
+    }
+  ],
+  "parallel": false,
+  "plan_digest": "sha256:2fa89ab1a304ed818e3d4ebd0b8253c3ba38db74c048220ba718001e49e57ab8",
+  "provider": "toolset:swf_sbx_compat:SbxCommaPolicyBackend",
+  "provider_digest": "1cb8f9718d5a96eb9a8a0182b1972ba8d0683fb8fd6ee3de1aa86a991ce9e328",
+  "reason": "serial_fallback_missing_fork",
+  "repairs": [
+    {
+      "agent_call": 4,
+      "duration_s": 558.811,
+      "input_head": "b77afa9eebe5a928789ac2e637772a86060f4413",
+      "output_head": "b24b4623342850942f38f8ce7fd854812f925aba",
+      "repair": 1
+    }
+  ],
+  "required_capabilities": [
+    "fork",
+    "filesystem_isolation",
+    "exact_teardown"
+  ],
+  "scheduler": "airflow",
+  "schema_version": 1,
+  "verified": {
+    "head": "b24b4623342850942f38f8ce7fd854812f925aba",
+    "ok": true,
+    "tests_count": 1972.0,
+    "tests_failed": 0.0,
+    "tests_passed": 1.0
+  }
+}

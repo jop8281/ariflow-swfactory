@@ -1,0 +1,86 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 95567,
+  "duration_ms": 95748,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 1835,
+  "is_error": false,
+  "iteration": 1,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 26487,
+      "cacheReadInputTokens": 162572,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 0.41901975,
+      "inputTokens": 728,
+      "maxOutputTokens": 64000,
+      "outputTokens": 6742,
+      "provider": "firstParty",
+      "thinkingTokens": 1475,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 20,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "56a621af-cf96-4ed9-aa4b-2c63161fb358",
+  "stage": "spec",
+  "stop_reason": "end_turn",
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 47,
+  "total_cost_usd": 0.41901975,
+  "ttft_ms": 2354,
+  "ttft_stream_ms": 1835,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 26487
+    },
+    "cache_creation_input_tokens": 26487,
+    "cache_read_input_tokens": 162572,
+    "inference_geo": "",
+    "input_tokens": 728,
+    "iterations": [],
+    "output_tokens": 6742,
+    "output_tokens_details": {
+      "thinking_tokens": 1475
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "f93b5c3d-21f9-4403-9ce0-02c61fb7fb45"
+}
