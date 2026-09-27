@@ -122,7 +122,7 @@ something it does not mention.
 re-run. Apply it when the queue is quiet, not in the middle of a fan-in.
 
 The drift check (`.github/workflows/promotion-policy.yml`) runs `audit` everywhere — offline,
-deterministic, and blocking — and runs `diff` against the live API only where a maintainer token
-exists. Reading branch protection needs administrative scope, which `github.token` does not have;
-when `SWF_POLICY_ADMIN_TOKEN` is absent the step says, in warnings, that the boundary was **not**
-verified. An unverified run must never be mistaken for a verified one.
+deterministic, and blocking — and then runs `diff` against the live API. Reading branch protection
+needs administrative scope, which `github.token` does not have. When `SWF_POLICY_ADMIN_TOKEN` is
+absent the step fails and names that the boundary was **not** verified. A green job means `diff`
+ran and found no drift. An unverified run is not a success.

@@ -483,6 +483,13 @@ def aggregate_guard(policy: Policy) -> str:
 #: and which no downstream release job does.
 FAN_IN_OVERRIDES = ("always(", "cancelled(", "failure(")
 
+# A live-diff step that exits 0 when the admin token is missing is a green check that did not
+# read branch protection. Run 36297538879 was cited as a successful live diff while its log said
+# the token was absent. Match only a statement, so a comment mentioning `exit 0` is not a hit.
+_EXIT_ZERO = re.compile(r"(?m)^[ \t]*exit[ \t]+0[ \t]*(?:#.*)?$")
+_EXIT_NONZERO = re.compile(r"(?m)^[ \t]*exit[ \t]+[1-9][0-9]*[ \t]*(?:#.*)?$")
+_EMPTY_TOKEN_TEST = re.compile(r"\[\s*-z\s+")
+
 
 def _reachable(jobs: Mapping[str, Any], start: str) -> set[str]:
     """Every job that transitively `needs` ``start``."""
@@ -656,6 +663,45 @@ def audit_policy(policy: Policy, repo_root: Path) -> list[str]:
                 problems.append(
                     f"release.yml job {name!r} has the condition {condition!r}, which runs it even when the jobs "
                     "it needs did not succeed"
+                )
+    problems.extend(_live_diff_problems(repo_root))
+    return problems
+
+
+def _live_diff_problems(repo_root: Path) -> list[str]:
+    """Refuse a drift alarm that succeeds without reading live branch protection.
+
+    `::warning::` plus ``exit 0`` still records the job as success. A later reader then treats
+    that conclusion as proof the live settings were compared, which is how an unverified run was
+    cited as the verification of issue #2048.
+    """
+    path = repo_root / ".github" / "workflows" / "promotion-policy.yml"
+    if not path.is_file():
+        return ["promotion-policy.yml is missing; live branch-protection drift is not checked"]
+    document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    jobs = document.get("jobs") or {}
+    runs = [
+        str(step.get("run"))
+        for job in jobs.values()
+        if isinstance(job, Mapping)
+        for step in _steps(job)
+        if isinstance(step.get("run"), str) and "promotion_policy.py diff" in step["run"]
+    ]
+    if not runs:
+        return ["promotion-policy.yml never runs `promotion_policy.py diff`"]
+    problems: list[str] = []
+    for run in runs:
+        if _EXIT_ZERO.search(run):
+            problems.append(
+                "promotion-policy.yml live diff exits 0; a missing SWF_POLICY_ADMIN_TOKEN then "
+                "leaves the job green without reading branch protection"
+            )
+        if _EMPTY_TOKEN_TEST.search(run):
+            before, separator, _after = run.partition("promotion_policy.py diff")
+            if not separator or not _EXIT_NONZERO.search(before):
+                problems.append(
+                    "promotion-policy.yml empty-token branch does not exit non-zero before "
+                    "`promotion_policy.py diff`; the step can succeed without a live diff"
                 )
     return problems
 
