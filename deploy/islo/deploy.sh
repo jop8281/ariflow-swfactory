@@ -9,7 +9,9 @@
 #
 # One-time prerequisites (console or CLI; not done here because they carry secrets):
 #   islo gateway create --name swfactory-orchestrator --default-action deny --internet-access true
-#     allow: github.com api.github.com pypi.org files.pythonhosted.org astral.sh islo.dev
+#     allow: github.com api.github.com pypi.org files.pythonhosted.org astral.sh
+#            releases.astral.sh release-assets.githubusercontent.com (the uv installer's redirect
+#            targets; this profile's setup script runs the same installer) islo.dev
 #            releases.islo.dev and the islo API host (the orchestrator creates agent sandboxes)
 #   islo environment create --name swfactory-orchestrator --secret ISLO_API_KEY=<islo api-key create>
 #   the agent-side `swfactory` gateway profile + environment from docs/islo.md (unchanged)
