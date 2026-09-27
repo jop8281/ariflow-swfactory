@@ -485,8 +485,8 @@ acceptance standard and explain the remaining enforcement work.
 | Extend or review the factory | [Contributing](CONTRIBUTING.md), [review policy](REVIEW.md), [changelog](CHANGELOG.md) |
 
 Contribute a coherent change with an explicit invariant, failure behavior, evidence, and a plan to
-remove superseded paths. Use the [finish-line milestones](docs/system-map.md#a-finish-line-that-can-be-demonstrated)
+remove superseded paths. Use the [current execution plan](docs/system-map.md#a-finish-line-that-can-be-demonstrated)
 and [open issues](https://github.com/zozo123/ariflow-swfactory/issues?q=is%3Aissue%20is%3Aopen) to choose work.
 The earlier [execution plan #2040](https://github.com/zozo123/ariflow-swfactory/issues/2040) and
-[convergence roadmap #2022](https://github.com/zozo123/ariflow-swfactory/issues/2022) are historical
-context. Licensed under [Apache 2.0](LICENSE).
+[convergence roadmap #2022](https://github.com/zozo123/ariflow-swfactory/issues/2022) are retained as
+historical context. Licensed under [Apache 2.0](LICENSE).
