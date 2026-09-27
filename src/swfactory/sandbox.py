@@ -890,7 +890,11 @@ class IsloSandbox:
             return [*argv, "--output", "plain", "--", "true"]
         run_cwd = self._cwd(cwd) if cwd else self.workdir
         script = f"cd {shlex.quote(run_cwd)} && {cmd}"
-        return ["islo", "use", self.name, "--output", "plain", "--", "bash", "-lc", script]
+        # `--output json`, not `plain`: islo prints its own status lines ("→ Reconnecting to existing
+        # sandbox ...") with println!, i.e. onto the COMMAND's stdout, in every mode but json (islo
+        # 0.53.1). Every stdout the stages parse -- `git rev-parse HEAD` first -- would carry it.
+        # json mode passes the command's stdout and exit code through untouched.
+        return ["islo", "use", self.name, "--output", "json", "--", "bash", "-lc", script]
 
     def ensure(self) -> None:
         """Create the sandbox if missing. Runs from ``factory_root`` so ``./islo.yaml`` applies."""
