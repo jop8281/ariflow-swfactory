@@ -262,6 +262,15 @@ jobs:
           uv build
           ls -l dist/
 
+      - name: Run the installed wheel demo outside the checkout
+        run: |
+          set -euo pipefail
+          wheels=("$GITHUB_WORKSPACE"/dist/*.whl)
+          test "${#wheels[@]}" -eq 1
+          smoke_dir=$(mktemp -d)
+          cd "$smoke_dir"
+          uv run --no-project --python 3.12 --with "${wheels[0]}" swfactory demo
+
       # The release itself is created once, in `publish`, after every platform's binary exists.
       # The wheel and the sdist wait here as a workflow artifact so a failed macOS build cannot
       # leave a published release with half of its assets missing.

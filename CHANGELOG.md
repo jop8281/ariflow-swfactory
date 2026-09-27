@@ -6,6 +6,9 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Include the calculator target in installed packages by limiting the Rust output ignore rule to
+  the repository root. Run the built wheel's demo outside the checkout before retaining release
+  artifacts, so source-tree files cannot hide missing package assets.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.
