@@ -20,7 +20,9 @@ PROFILE="${PROFILE:-swfactory}"                  # islo gateway profile ([sandbo
 ENV="${ENV:-swfactory}"                          # islo environment ([sandbox] environment)
 SNAPSHOT="${SNAPSHOT:-0}"                        # 1 = bake swf-golden-<date> (docs/islo.md)
 BRANCH="${BRANCH:-main}"
-ALLOW_HOSTS=(api.anthropic.com github.com api.github.com pypi.org files.pythonhosted.org astral.sh)
+# Same set as the allow-list in swfactory.doctor (parity is pinned by tests/test_doctor.py); the last
+# two are the astral.sh uv installer's redirect targets. Keep this array on one line, unquoted.
+ALLOW_HOSTS=(api.anthropic.com github.com api.github.com pypi.org files.pythonhosted.org astral.sh releases.astral.sh release-assets.githubusercontent.com)
 
 FACTORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$FACTORY_ROOT"   # `islo use` picks up ./islo.yaml from here
