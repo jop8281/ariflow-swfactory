@@ -866,13 +866,37 @@ class Factory:
                 intent.work_id, member.job_idx, int(cell["epoch"]), token=intent.lease_token
             )
             return cell
+        identity = identity_for_job(job)
         try:
-            cell = self.cell_store.activate(identity_for_job(job), actor=owner)
+            cell = self.cell_store.activate(identity, actor=owner)
         except CellBusy as error:
-            raise Refused(409, str(error)) from error
+            # Two attempts of this same order can overlap -- an expired lease is a guess that the
+            # holder died, so a slow attempt is not excluded -- and exactly one of them wins the
+            # activation. The one that still owns the intent is often not that winner, so a flat
+            # refusal here leaves every attempt of the round failed and the command undelivered.
+            # The loser adopts the activation on the same evidence the crash path above uses: the
+            # Cell's own history naming this work order as the actor that activated this epoch.
+            adopted = self._own_live_activation(identity.stable_id(), owner) if member.cell_epoch is None else None
+            if adopted is None:
+                raise Refused(409, str(error)) from error
+            cell = adopted
         self.control.admission.record_member_epoch(
             intent.work_id, member.job_idx, int(cell["epoch"]), token=intent.lease_token
         )
+        return cell
+
+    def _own_live_activation(self, cell_id: str, owner: str) -> dict[str, Any] | None:
+        """The live Cell a concurrent attempt of this same work order activated, or ``None``.
+
+        ``None`` covers every Cell this order cannot prove is its own -- another harness holding the
+        identity live is still a conflict, and stays one.
+        """
+        try:
+            cell = self.cell_store.get(cell_id)
+        except KeyError:
+            return None
+        if cell["state"] not in LIVE_CELL_STATES or not self._activated_by(cell, owner):
+            return None
         return cell
 
     def _activated_by(self, cell: dict[str, Any], owner: str) -> bool:
