@@ -568,6 +568,29 @@ def test_the_policy_audit_agrees_with_the_checked_in_workflows() -> None:
     assert promotion_policy.audit_policy(POLICY, REPO) == []
 
 
+@pytest.mark.parametrize("scope", ["job", "step"])
+@pytest.mark.parametrize("condition", [False, "${{ false }}", "github.event_name == 'push'"])
+def test_live_diff_audit_rejects_skipping_conditions(tmp_path: Path, scope, condition) -> None:
+    drift = _promotion_repo(tmp_path)
+    document = yaml.safe_load(drift.read_text())
+    job = document["jobs"]["policy"]
+    target = job if scope == "job" else job["steps"][-1]
+    target["if"] = condition
+    drift.write_text(yaml.safe_dump(document))
+
+    assert any("condition" in problem for problem in promotion_policy.audit_policy(POLICY, tmp_path))
+
+
+@pytest.mark.parametrize("wrapper", ["if false; then\n{}\nfi", ": <<'SKIP'\n{}\nSKIP"])
+def test_live_diff_audit_rejects_unreachable_commands(tmp_path: Path, wrapper) -> None:
+    drift = _promotion_repo(tmp_path)
+    command = "uv run python scripts/promotion_policy.py diff"
+    wrapped = wrapper.format(command).replace("\n", "\n          ")
+    drift.write_text(drift.read_text().replace(command, wrapped, 1))
+
+    assert any("reviewed command structure" in problem for problem in promotion_policy.audit_policy(POLICY, tmp_path))
+
+
 def test_superseded_live_gate_does_not_start_more_long_harnesses() -> None:
     """Cancellation must drain this advisory job instead of blocking the next CI candidate."""
     steps = _workflow("ci.yml")["jobs"]["live-gate-e2e"]["steps"]

@@ -6,6 +6,8 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Reject skipped or unreachable live-policy comparisons and keep webhook response bodies intact
+  when diagnostic logging fails.
 - Make unavailable-provider coverage independent of installed upstream backends, and describe
   their introduction PRs without assuming those PRs remain open.
 - Keep local sandbox credentials scrubbed by disabling host shell startup files and removing

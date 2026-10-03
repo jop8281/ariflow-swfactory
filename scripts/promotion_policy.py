@@ -487,8 +487,15 @@ FAN_IN_OVERRIDES = ("always(", "cancelled(", "failure(")
 # read branch protection. Run 36297538879 was cited as a successful live diff while its log said
 # the token was absent. Match only a statement, so a comment mentioning `exit 0` is not a hit.
 _EXIT_ZERO = re.compile(r"(?m)^[ \t]*exit[ \t]+0[ \t]*(?:#.*)?$")
-_EXIT_NONZERO = re.compile(r"(?m)^[ \t]*exit[ \t]+[1-9][0-9]*[ \t]*(?:#.*)?$")
-_EMPTY_TOKEN_TEST = re.compile(r"\[\s*-z\s+")
+_LIVE_DIFF_SCRIPT = """\
+set -euo pipefail
+if [ -z "${GH_TOKEN:-}" ]; then
+echo "::error::SWF_POLICY_ADMIN_TOKEN is not set; live branch protection was NOT verified."
+echo "::error::Reading protection requires admin scope. See docs/promotion-policy.md."
+exit 1
+fi
+uv run python scripts/promotion_policy.py diff
+"""
 # `diff || true` and `set +e` both turn a real drift or API failure into a green step
 # even when the empty-token branch itself exits 1.
 _DIFF_STATUS_MASK = re.compile(r"\|\|\s*(?:true|:|exit[ \t]+0)\b")
@@ -697,12 +704,16 @@ def _live_diff_problems(repo_root: Path) -> list[str]:
         if not diff_steps:
             continue
         found = True
+        if _condition(job) is not None:
+            problems.append(f"promotion-policy.yml job {job_name!r} has a condition that can skip the live diff")
         if _fails_open_on_error(job.get("continue-on-error")):
             problems.append(
                 f"promotion-policy.yml job {job_name!r} sets continue-on-error; "
                 "a failed live diff still leaves the job green"
             )
         for step in diff_steps:
+            if _condition(step) is not None:
+                problems.append("promotion-policy.yml live diff step has a condition that can skip the live diff")
             if _fails_open_on_error(step.get("continue-on-error")):
                 problems.append(
                     "promotion-policy.yml live diff step sets continue-on-error; "
@@ -719,15 +730,13 @@ def _live_diff_problems(repo_root: Path) -> list[str]:
                     "promotion-policy.yml suppresses the live diff status; detected drift or an API "
                     "read failure can leave the job green"
                 )
-            before, separator, _after = run.partition("promotion_policy.py diff")
-            # The sanctioned shape is the one in promotion-policy.yml: an empty-token
-            # `[ -z` test exits non-zero, and only then does `diff` run. A `[ -n` test
-            # that skips `diff` when the token is missing has no `[ -z` and no earlier
-            # non-zero exit, so it fails this same check.
-            if not separator or not _EMPTY_TOKEN_TEST.search(before) or not _EXIT_NONZERO.search(before):
+            # Pin the reviewed command structure; merely finding commands in arbitrary shell
+            # text cannot establish that they execute (for example inside `if false`).
+            lines = tuple(line.strip() for line in run.splitlines() if line.strip())
+            if lines != tuple(_LIVE_DIFF_SCRIPT.splitlines()):
                 problems.append(
-                    "promotion-policy.yml empty-token branch does not exit non-zero before "
-                    "`promotion_policy.py diff`; the step can succeed without a live diff"
+                    "promotion-policy.yml live diff does not use the reviewed command structure; "
+                    "the step can succeed without a live diff"
                 )
     if not found:
         return ["promotion-policy.yml never runs `promotion_policy.py diff`"]

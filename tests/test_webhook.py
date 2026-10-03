@@ -326,8 +326,14 @@ def test_server_routes_labeled_issue_to_airflow(served) -> None:
     assert not any(SECRET in line for line in lines)
 
 
-def test_reply_records_diagnostic_before_acknowledgment_body() -> None:
+@pytest.mark.parametrize("log_error", [None, OSError("closed log"), RuntimeError("broken logger")])
+def test_reply_records_diagnostic_before_acknowledgment_body(log_error) -> None:
     events: list[str] = []
+
+    def log(line):
+        events.append("diagnostic")
+        if log_error is not None:
+            raise log_error
 
     class ResponseBody(io.BytesIO):
         def write(self, body: bytes) -> int:
@@ -340,7 +346,7 @@ def test_reply_records_diagnostic_before_acknowledgment_body() -> None:
         token_provider=lambda: "T",
         secret=SECRET,
         host="127.0.0.1",
-        log=lambda line: events.append("diagnostic"),
+        log=log,
     )
     try:
         handler = server.RequestHandlerClass.__new__(server.RequestHandlerClass)
