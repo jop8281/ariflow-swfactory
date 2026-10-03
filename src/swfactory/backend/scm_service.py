@@ -40,6 +40,13 @@ _ISSUE_MARKER_PREFIX = "<!-- swfactory-operation:"
 
 
 def operation(factory: Factory, path: str, body: dict[str, Any]) -> Any:
+    if path == "/scm/autonomy-status":
+        from swfactory.autonomy_status import status
+
+        limit = body.get("limit", 50)
+        if type(limit) is not int:
+            raise ValueError("limit must be an integer")
+        return status(factory.state_root, limit=limit)
     if not factory.repo:
         raise Refused(503, "SWF_REPO is not configured on the backend")
     base_branch = text({"base": body.get("base_branch", "main")}, "base")

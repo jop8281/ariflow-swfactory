@@ -7,6 +7,7 @@ import hashlib
 import json
 import sqlite3
 import tomllib
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -104,6 +105,7 @@ class AutonomyStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.execute("CREATE TABLE IF NOT EXISTS decisions (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS decision_times (key TEXT PRIMARY KEY, created_at TEXT NOT NULL)")
 
     def connect(self):
         return sqlite3.connect(self.path, timeout=30)
@@ -111,7 +113,12 @@ class AutonomyStore:
     def bind(self, key: str, value: dict) -> dict:
         encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
         with self.connect() as db:
-            db.execute("INSERT OR IGNORE INTO decisions VALUES (?, ?)", (key, encoded))
+            inserted = db.execute("INSERT OR IGNORE INTO decisions VALUES (?, ?)", (key, encoded))
+            if inserted.rowcount:
+                db.execute(
+                    "INSERT OR IGNORE INTO decision_times VALUES (?, ?)",
+                    (key, datetime.now(UTC).isoformat(timespec="milliseconds")),
+                )
             previous = db.execute("SELECT value FROM decisions WHERE key = ?", (key,)).fetchone()[0]
         if previous != encoded:
             raise StageError("policy", "autonomous decision changed at the same Cell epoch")
@@ -121,6 +128,28 @@ class AutonomyStore:
         with self.connect() as db:
             row = db.execute("SELECT value FROM decisions WHERE key = ?", (key,)).fetchone()
         return json.loads(row[0]) if row else None
+
+
+def record_merge_timing(ctx, result: dict | None = None) -> None:
+    """Host-only observational timing; never an input to a gate or managed mutation."""
+    name = "merge-timing.json"
+    now = datetime.now(UTC)
+    prior = json.loads(ctx.state.read_control(name)) if ctx.state.has_control(name) else {}
+    if prior.get("state") == "merged":
+        return
+    data = {
+        "started_at": prior.get("started_at", now.isoformat()),
+        "observed_at": now.isoformat(),
+        "state": result.get("state", "checking") if result else "checking",
+        "ci_checks_wait_s": prior.get("ci_checks_wait_s", 0.0),
+    }
+    if prior.get("state") == "pending" and "check" in prior.get("reason", ""):
+        data["ci_checks_wait_s"] += max(0.0, (now - datetime.fromisoformat(prior["observed_at"])).total_seconds())
+    if result:
+        data["reason"] = result.get("reason", "")
+    if data["state"] == "merged":
+        data["finished_at"] = now.isoformat()
+    ctx.state.write_control(name, json.dumps(data, sort_keys=True) + "\n")
 
 
 def gate_key(cell_id: str, epoch: int, gate: str) -> str:

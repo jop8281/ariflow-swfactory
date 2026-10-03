@@ -29,11 +29,9 @@ Exit code 1 means a regression (or an unusable baseline). Runs land in
 no eval can resume another's stage log and score a pass it did not earn. `scm` is always `local`:
 an eval never opens a pull request.
 
-CI is configured to run the suite keylessly in `.github/workflows/evals.yml` (`eval-suite`), whose
-`paths` trigger
-lists every file that steers the agent — `AGENTS.md`, `CLAUDE.md`, `REVIEW.md`, `bands.yaml`, `.claude/**`,
-`src/swfactory/prompts/**`, `blueprints/**`, `demo/evals/**`. The keyed `real-demo` and
-`evals-islo` jobs (real agent, weekly) are unchanged.
+Candidate CI runs the suite keylessly in `.github/workflows/ci.yml` (`eval-suite`) for every
+main push and PR targeting main, including configuration and prompt changes. The optional
+`real-demo` and `evals-islo` jobs run weekly or on manual dispatch.
 
 ## Layout
 
@@ -132,3 +130,7 @@ Known limits: the scripted agent replays fixtures, so the suite gates the *pipel
 policy* (loops, gates, review contract, protected paths, labels, exports) — not the model's
 judgement. Only `--agent claude` measures that, and it costs money and a key; that is what the
 weekly `real-demo` / `evals-islo` jobs are for.
+
+The separate `evals.yml` workflow runs weekly or on manual dispatch for optional real-provider
+experiments. It includes a scripted comparison baseline; normal PRs and main pushes use the
+mandatory candidate eval job once, without a duplicate evals workflow.

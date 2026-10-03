@@ -11,7 +11,9 @@
 Bring a GitHub work order to an **atelier for software**. People and agents investigate and refine
 the commissioned change inside bounded work cells. Apache Airflow owns the managed lifecycle;
 Factory Cell identity and epoch fence managed effects; the trusted control plane publishes a
-reviewable pull request with retained evidence. People decide what reaches `main`. See the
+reviewable pull request with retained evidence. Human-approved lines wait for an operator;
+the experimental autonomous line uses a checked-in policy to approve bounded changes and merge
+through the backend. Policy and authority changes remain human maintenance. See the
 [software atelier workflow](docs/software-atelier.md) for the method and its current runtime
 boundaries.
 
@@ -63,6 +65,19 @@ change is approved, verified, published, and recovered when execution fails.
 | Bounded execution | Stage budgets, timeouts, build attempts, and review repair limits | Explicit success, refusal, or blocked outcomes |
 | Recoverable ownership | Durable Factory Cells, epochs, and operation journals | Work identity survives a worker; managed mutations can be reconciled |
 | Inspectable delivery | Evidence committed alongside the change; CLI/TUI inspection | Trace requirements, approvals, tests, and review back to the PR |
+
+## Choose a run
+
+| Path | Approvals and delivery | Start here |
+| --- | --- | --- |
+| Local replay | Fixture approvals, no model calls, local Git delivery | The quickstart above |
+| Human-approved work | An operator answers artifact gates and merges the resulting PR | [Operator guide](docs/swf.md) |
+| Autonomous documentation work (experimental) | Repo policy approves gates; the backend verifies checks and merges | [Autonomous operating guide](docs/autonomous.md) |
+
+Autonomy requires a deployed backend, Airflow, and configured model/sandbox access. A passing
+replay does not prove that deployment works. Inspect policy refusals with
+`uv run swfactory state autonomy --json`; set `SWF_BACKEND_URL` and `SWF_BACKEND_TOKEN` to read
+the deployed backend, or use `--root` with its local state directory.
 
 ## The Liquid methodology
 

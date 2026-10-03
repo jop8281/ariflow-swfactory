@@ -1,10 +1,9 @@
 name: evals
-# Runs the eval suite whenever the factory's institutional knowledge changes, weekly, and on
-# demand (workflow_dispatch). Configuration steers the agent (the playbook's rule), so every file
-# that steers it is in the `paths` trigger below. Three jobs:
+# Runs the optional provider suite weekly and on
+# demand (workflow_dispatch). ci.yml runs the required scripted evals for every main candidate.
+# This workflow retains a scripted baseline for comparison with its optional provider jobs:
 #   eval-suite  demo/evals/**: the whole suite with the SCRIPTED agent in a local sandbox, gated
-#               on demo/evals/baseline.json. No secret, so it runs on forks and every PR that
-#               touches AGENTS.md/CLAUDE.md, a prompt, a blueprint or the suite itself (docs/evals.md).
+#               on demo/evals/baseline.json. No secret and no duplicate per-PR/push run.
 # The two below run the REAL path on demo/issue.md, with the same assertion on the RunReport the
 # CLI writes to .factory/<run>/report.json (tests passed, deliver:ok); local scm, so the PR is
 # printed, not opened:
@@ -20,35 +19,6 @@ on:
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - AGENTS.md
-      - CLAUDE.md
-      - REVIEW.md
-      - bands.yaml
-      - .claude/**
-      - blueprints/**
-      - demo/evals/**
-      - src/swfactory/prompts/**
-      - src/swfactory/agent.py
-      - src/swfactory/evals.py
-      - src/swfactory/stages.py
-      - .github/workflows/evals.yml
-  pull_request:
-    paths:
-      - AGENTS.md
-      - CLAUDE.md
-      - REVIEW.md
-      - bands.yaml
-      - .claude/**
-      - blueprints/**
-      - demo/evals/**
-      - src/swfactory/prompts/**
-      - src/swfactory/agent.py
-      - src/swfactory/evals.py
-      - src/swfactory/stages.py
-      - .github/workflows/evals.yml
 permissions:
   contents: read
 env:
