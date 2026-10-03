@@ -19,7 +19,7 @@ dist/
 airflow_home/
 
 # Rust workspace output. demo/target is a committed fixture, so ignore only the root target.
-target/
+/target/
 
 # Turborepo local task cache and run summaries
 .turbo/
