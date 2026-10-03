@@ -151,6 +151,9 @@ class Remote:
     writes = []
     lose_response = False
 
+    def fetch_issue(self, ref):
+        return Issue(id=ref, title="Fix", body="Acceptance: works", labels=["factory:autonomous"])
+
     def autonomous_snapshot(self, *args):
         return copy.deepcopy(type(self).snapshot)
 
@@ -212,6 +215,38 @@ def test_merge_is_backend_owned_sha_fenced_and_idempotent(published):
     assert Remote.writes == [(1, SHA)]
     recorded = factory.control.operations.get(body["operation_key"])
     assert recorded["state"] == "committed"
+
+
+@pytest.mark.parametrize("revocation", ["unlabeled", "blocked", "closed"])
+def test_revoked_issue_cannot_merge_even_with_green_checks(published, monkeypatch, revocation):
+    factory, _, _, body = published
+    issue = Issue(id="101", title="Fix", body="Acceptance: works", labels=["factory:autonomous"])
+    if revocation == "unlabeled":
+        issue.labels = []
+    elif revocation == "blocked":
+        issue.labels.append("factory:blocked")
+    else:
+        issue.state = "closed"
+    monkeypatch.setattr(Remote, "fetch_issue", lambda self, ref: issue)
+    with pytest.raises(autonomous.Refused, match="autonomous merge blocked"):
+        autonomous.merge(factory, body)
+    assert Remote.writes == []
+
+
+def test_issue_revoked_between_merge_read_and_write_is_refused(published, monkeypatch):
+    factory, _, _, body = published
+    reads = []
+
+    def fetch_issue(self, ref):
+        reads.append(ref)
+        labels = ["factory:autonomous"] if len(reads) == 1 else []
+        return Issue(id=ref, title="Fix", body="Acceptance: works", labels=labels)
+
+    monkeypatch.setattr(Remote, "fetch_issue", fetch_issue)
+    with pytest.raises(autonomous.Refused, match="autonomous merge blocked"):
+        autonomous.merge(factory, body)
+    assert len(reads) >= 2
+    assert Remote.writes == []
 
 
 @pytest.mark.parametrize(
@@ -340,6 +375,23 @@ def test_publication_validates_backend_gate_chain_and_actual_patch(approved):
     decision = autonomous.validate_publication(factory, body, patch)
     assert decision["revision"] == policy.revision
     assert decision["paths"] == ["docs/webhooks.md"]
+
+
+@pytest.mark.parametrize("revocation", ["unlabeled", "blocked", "closed"])
+def test_revoked_issue_cannot_publish_after_plan_approval(approved, monkeypatch, revocation):
+    from swfactory.scm import GitHubScm
+
+    factory, _, _, body, patch = approved
+    issue = Issue(id="101", title="Fix", body="Acceptance: works", labels=["factory:autonomous"])
+    if revocation == "unlabeled":
+        issue.labels = []
+    elif revocation == "blocked":
+        issue.labels.append("factory:blocked")
+    else:
+        issue.state = "closed"
+    monkeypatch.setattr(GitHubScm, "fetch_issue", lambda self, ref: issue)
+    with pytest.raises(autonomous.Refused, match="autonomous publication blocked"):
+        autonomous.validate_publication(factory, body, patch)
 
 
 @pytest.mark.parametrize(
