@@ -143,8 +143,13 @@ deliver                blockers=0, commits=2, rejected=0, denied_tool_calls=0
 seven. The build commit changed exactly the one file the plan declared. `pr.md` stamps itself
 `SCRIPTED REPLAY - not real work: do not merge`, which is what a keyless proof should say.
 
-What is **not** proven: no self-hosted run has used a real model (`ANTHROPIC_API_KEY`), none has run
-on islo (`ISLO_API_KEY`), and no self-authored pull request has been merged. It is also unsettled
-whether `islo use --init minimal` executes the repo-root `islo.yaml` setup script that installs
-`uv`; if it does not, the contract's test command must self-bootstrap `uv` in the cell. One `islo
-use` settles it. Until those exist, `selfhost.factory` carries no end-to-end evidence and says so.
+What is **not** proven: no self-hosted run has used a real model (`ANTHROPIC_API_KEY`), no factory
+run has executed on islo (`ISLO_API_KEY`), and no self-authored pull request has been merged. What
+one bare `islo use` does settle (2026-09-27, islo CLI 0.53.1): `--init minimal` *does* execute the
+repo-root `islo.yaml` setup script, and under the former six-host allowlist that script's `uv`
+install died with `curl: (22) The requested URL returned error: 403` — the `astral.sh` installer
+redirects to `releases.astral.sh` and falls back to GitHub release assets on
+`release-assets.githubusercontent.com`, neither of which was allowed. Both hosts are in the
+allow-list `deploy/islo/bootstrap.sh` now creates; a profile bootstrapped before this change keeps
+its six rules until that script is re-run. Until a real-model islo run and a merged self-authored PR
+exist, `selfhost.factory` carries no end-to-end evidence and says so.

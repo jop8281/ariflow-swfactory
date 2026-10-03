@@ -1,0 +1,26 @@
+[
+  {
+    "gate": "intent",
+    "decision": "approve",
+    "actor": "admin",
+    "at": "2026-09-27T11:40:23.129770Z",
+    "artifact_sha256": "2ee082bdfc033a6537f0ac0c0c9b2b5e2d65612ace618ba2810d2a1f520bb475",
+    "mode": "human",
+    "cell_id": "cell_1b6d3442808c39cced30a2db",
+    "cell_epoch": 1,
+    "inputs_digest": "inputs:4475776b44b47ef501ba69800c8b9531af1a96b3cdae3200ddf961ee6ee05ac5",
+    "responded_at": "2026-09-27T11:40:19.240097Z"
+  },
+  {
+    "gate": "plan",
+    "decision": "approve",
+    "actor": "admin",
+    "at": "2026-09-27T11:44:26.221996Z",
+    "artifact_sha256": "961774f05a1886b51896713af009f55b2c799607e3263557ae042d373983ada6",
+    "mode": "human",
+    "cell_id": "cell_1b6d3442808c39cced30a2db",
+    "cell_epoch": 1,
+    "inputs_digest": "inputs:4475776b44b47ef501ba69800c8b9531af1a96b3cdae3200ddf961ee6ee05ac5",
+    "responded_at": "2026-09-27T11:44:20.114905Z"
+  }
+]

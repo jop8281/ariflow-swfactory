@@ -1,0 +1,154 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 382849,
+  "duration_ms": 383638,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 3085,
+  "is_error": false,
+  "iteration": 1,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 80779,
+      "cacheReadInputTokens": 1363308,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 1.83161275,
+      "inputTokens": 1568,
+      "maxOutputTokens": 64000,
+      "outputTokens": 25490,
+      "provider": "firstParty",
+      "thinkingTokens": 18289,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 40,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "b8261c18-6632-45e2-b7d2-f96ebb2b621b",
+  "stage": "review",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "findings": [
+      {
+        "detail": "`_member_cell` now adopts another attempt's activation on `CellBusy` via the new `_own_live_activation`, changing the guarantee that backs \"exactly one Airflow run per work order\", yet no test in this diff exercises either branch (adopt on same owner, still `Refused(409)` on a foreign owner) and the only test that can reach it, `tests/test_dispatch_strand.py::test_two_replicas_pumping_the_same_outbox_dispatch_once`, is a four-thread race that can pass without entering the `CellBusy` path at all. The factory's own record for this change (`docs/factory/SELFHOST-2/agent/fix.4.json`) states the suite was never run (\"this environment provided no shell/execution tool, so I could not run `uv run --group dev pytest`\"), so a fix aimed at a red test is merging with its greenness unestablished; add deterministic tests for both branches and a recorded green suite before merge.",
+        "file": "src/swfactory/backend/service.py",
+        "line": 888,
+        "severity": "blocker",
+        "title": "New CellBusy-adoption behaviour in the exactly-once dispatch path ships untested and unverified"
+      },
+      {
+        "detail": "`plan.md` declares exactly six files (`tests/test_doctor.py`, `src/swfactory/doctor.py`, `deploy/islo/bootstrap.sh`, `deploy/islo/deploy.sh`, `docs/islo.md`, `docs/selfhost.md`), and `spec.md`'s API section confines the change to `doctor.py` + `deploy/**` + `docs/**` + `tests/**`; `src/swfactory/backend/service.py` is outside both and unrelated to the two-host allowlist widening. Either land the dispatch-race fix as its own PR with its own plan, or amend the plan and spec to declare it so the scope under review matches the diff.",
+        "file": "src/swfactory/backend/service.py",
+        "line": 869,
+        "severity": "major",
+        "title": "Diff touches a file not listed in plan.md"
+      },
+      {
+        "detail": "The diff only changes the Python tuple, the bootstrap array and prose; an already-bootstrapped `swfactory` profile keeps its six rules (the explicit premise of R3) until someone re-runs `deploy/islo/bootstrap.sh` or issues the two `add-rule` calls, so the 403 persists for existing operators. In an evidence-only paragraph this should read as what the bootstrap now creates (\"in the allow-list `bootstrap.sh` creates; re-run it on an existing profile\") rather than as an accomplished fact.",
+        "file": "docs/selfhost.md",
+        "line": 152,
+        "severity": "minor",
+        "title": "\"Both hosts are now in the profile\" claims a live gateway state the diff cannot deliver"
+      },
+      {
+        "detail": "Lines 146-148 assert that no self-hosted run \"has run on islo (`ISLO_API_KEY`)\" and then immediately record an observation made by \"one `islo use`, 2026-09-27, islo CLI 0.53.1\", which reads as self-contradictory now that the sentence the old text used to promise (\"One `islo use` settles it\") has happened. Qualify the preserved claim (for example \"no *factory run* has run on islo\") so R12's unproven-evidence list stays true alongside the new observation.",
+        "file": "docs/selfhost.md",
+        "line": 146,
+        "severity": "minor",
+        "title": "Preserved claim \"none has run on islo\" now sits beside \"one `islo use`\""
+      },
+      {
+        "detail": "`deploy/islo/deploy.sh:12-15` now says the `swfactory-orchestrator` profile must allow `releases.astral.sh` and `release-assets.githubusercontent.com`, while this file's comment for the same profile still lists only the six-host set \u2014 and its own `setup_script` at line 25 runs the exact `curl -LsSf https://astral.sh/uv/install.sh` that the PR proves 403s under that set. The spec flagged this as an accepted residual (open question 2), but an operator following this file creates a profile that fails the orchestrator's own setup, so the two comments should be reconciled.",
+        "file": "deploy/islo/orchestrator/islo.yaml",
+        "line": 12,
+        "severity": "minor",
+        "title": "Orchestrator allow-list comment now contradicts the updated deploy.sh for the same profile"
+      },
+      {
+        "detail": "The srt backend's default domain list carries `astral.sh` without the two redirect targets, so an srt-backed cell running the same `uv` installer hits the same `curl: (22) ... 403` the new docs paragraph describes as resolved, and nothing pins parity for this list the way R8 does for `bootstrap.sh`. Spec open question 1 deliberately left it out of scope; recording it here so the remaining exposure is visible rather than implicitly closed by the docs change.",
+        "file": "src/swfactory/config.py",
+        "line": 28,
+        "severity": "minor",
+        "title": "`SRT_DEFAULT_DOMAINS` keeps the identical redirect gap the PR fixes for islo"
+      },
+      {
+        "detail": "The `allow:` block is a list an operator copies into `add-rule` calls, and the explanatory clause \"(the uv installer's redirect targets; this profile's setup script runs the same installer)\" now sits between `release-assets.githubusercontent.com` and `islo.dev`, splitting the hosts across the prose. Moving the explanation to its own comment line after the full host list keeps the list contiguous; `docs/islo.md:10` has the same shape but at least ends its row with the parenthetical.",
+        "file": "deploy/islo/deploy.sh",
+        "line": 13,
+        "severity": "nit",
+        "title": "Parenthetical inserted mid host list breaks a copy-pasteable prerequisite"
+      },
+      {
+        "detail": "`test_new_allowlist_tests_are_hermetic` asserts the signature of `allow_hosts_from_shell` and that its source text lacks `subprocess`/`urllib`/`socket`/`curl`, which is near-tautological: it cannot observe what the other new tests do, and it fails only if someone edits that one function. It satisfies R15 as written, but the real guarantee comes from the tests using `ROOT`-relative `read_text` only.",
+        "file": "tests/test_doctor.py",
+        "line": 302,
+        "severity": "nit",
+        "title": "Hermeticity test only greps its own helper's source"
+      },
+      {
+        "detail": "`GATEWAYS` (and line 188) still report `rule_count: 6` for a `swfactory` profile that the same module now pins to eight allow hosts; nothing asserts on it because `_check_gateway` never enumerates rules, so no behaviour changes. Bumping it to 8 keeps the canned islo output a plausible reading of the profile this PR describes.",
+        "file": "tests/test_doctor.py",
+        "line": 32,
+        "severity": "nit",
+        "title": "Canned `rule_count: 6` fixture is now stale relative to the eight-host list"
+      }
+    ],
+    "verdict": "request_changes"
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 45,
+  "total_cost_usd": 1.83161275,
+  "ttft_ms": 6455,
+  "ttft_stream_ms": 3085,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 80779
+    },
+    "cache_creation_input_tokens": 80779,
+    "cache_read_input_tokens": 1363308,
+    "inference_geo": "",
+    "input_tokens": 1568,
+    "iterations": [],
+    "output_tokens": 25490,
+    "output_tokens_details": {
+      "thinking_tokens": 18289
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "b6b1cd1c-0d4a-4002-b0be-2d2d85c77d24"
+}
