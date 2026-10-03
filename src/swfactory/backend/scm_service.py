@@ -44,6 +44,13 @@ def operation(factory: Factory, path: str, body: dict[str, Any]) -> Any:
         raise Refused(503, "SWF_REPO is not configured on the backend")
     base_branch = text({"base": body.get("base_branch", "main")}, "base")
     scm = GitHubScm(factory.repo, base_branch)
+    if path in {"/scm/triage", "/scm/policy-gate", "/scm/merge"}:
+        from .autonomous_service import operation as autonomous_operation
+
+        try:
+            return autonomous_operation(factory, path, body)
+        except StageError as error:
+            raise Refused(503 if error.retryable else 403, str(error)) from error
     if path == "/scm/issue":
         # Filesystem issue refs are a local-demo affordance. The backend holds publication and
         # Airflow credentials, so a network caller may resolve GitHub issue numbers only.
@@ -199,6 +206,12 @@ def _publish(factory: Factory, base_branch: str, body: dict[str, Any]) -> dict[s
         raise ValueError("patch_b64 is invalid base64") from error
     if len(patch) > MAX_PATCH_BYTES:
         raise ValueError("patch exceeds backend publication limit")
+    from .autonomous_service import validate_publication
+
+    try:
+        autonomous = validate_publication(factory, body, patch)
+    except StageError as error:
+        raise Refused(403, str(error)) from error
     patch_digest = hashlib.sha256(patch).hexdigest()
     # The marker is a lookup hint for people reading the PR. It is not the proof: anyone with write
     # access can edit a body, so a retry is judged on git content (`patch_content_digest`) instead.
@@ -217,6 +230,7 @@ def _publish(factory: Factory, base_branch: str, body: dict[str, Any]) -> dict[s
             "allowed_prefixes": allowed,
             "patch_sha256": patch_digest,
             "initiating_actor": initiating_actor,
+            "autonomous": autonomous,
         }
     )
     request = _request(
@@ -329,7 +343,12 @@ def _publish(factory: Factory, base_branch: str, body: dict[str, Any]) -> dict[s
                 f"remote observation failed: {error}",
             )
 
-    return factory.control.mutate_core(request, publish, reconcile=reconcile).result
+    result = factory.control.mutate_core(request, publish, reconcile=reconcile).result
+    if autonomous is not None:
+        from .autonomous_service import remember_publication
+
+        remember_publication(factory, cell, autonomous, result)
+    return result
 
 
 def _publication_identity(repo: str, base: str, branch: str, content_digest: str) -> RemoteIdentity:

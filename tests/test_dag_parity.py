@@ -90,12 +90,16 @@ def _gate_is_auto(gate: dict) -> bool:
 
 def _job_task_ids(shape: dict) -> list[str]:
     """Expected task ids under ``job.`` in pipeline order (setup first, metrics/teardown last)."""
-    gates = {g["after"] for g in shape["gates"]}
+    gates = {g["after"]: g for g in shape["gates"]}
     ids = ["job.setup"]
     for stage in shape["order"]:
         ids.append(f"job.{stage}")
         if stage in gates:
-            ids += [f"job.approve_{stage}", f"job.record_{stage}"]
+            if gates[stage].get("mode") != "policy":
+                ids.append(f"job.approve_{stage}")
+            ids.append(f"job.record_{stage}")
+    if shape["name"] == "autonomous":
+        ids.append("job.merge")
     return [*ids, "job.metrics", "job.teardown"]
 
 
@@ -232,6 +236,11 @@ def test_gates_are_approval_operators(dagbag, path: Path) -> None:
     dag = dagbag.dags[shape["name"]]
     for gate in shape["gates"]:
         stage = gate["after"]
+        if gate.get("mode") == "policy":
+            assert f"job.approve_{stage}" not in dag.task_ids
+            record = dag.get_task(f"job.record_{stage}")
+            assert f"job.{stage}" in record.upstream_task_ids
+            continue
         op = dag.get_task(f"job.approve_{stage}")
         assert isinstance(op, ApprovalOperator), type(op)
         assert op.response_timeout == timedelta(hours=gate.get("timeout_h", 24))
@@ -271,9 +280,13 @@ def test_job_tasks_equal_blueprint_pipeline(dagbag, path: Path) -> None:
     expected = ["fan_out", "job.setup"]
     for item in bp.pipeline():
         if isinstance(item, Gate):
-            expected += [f"job.approve_{item.name}", f"job.record_{item.name}"]
+            if item.mode != "policy":
+                expected.append(f"job.approve_{item.name}")
+            expected.append(f"job.record_{item.name}")
         else:
             expected.append(f"job.{item.__name__}")
+    if bp.name == "autonomous":
+        expected.append("job.merge")
     expected += ["job.metrics", "job.teardown"]
     assert _linear_order(dag) == expected
 
@@ -590,3 +603,48 @@ def test_dag_modules_do_not_import_swfactory_at_parse_time() -> None:
             if line.startswith(("from swfactory", "import swfactory")):
                 pytest.fail(f"{path.name}: top-level swfactory import: {line}")
     assert not (DAGS / "factory.py").exists(), "dags/factory.py was replaced by dags/blueprints.py"
+
+
+def test_autonomous_merge_waits_without_releasing_cell_then_completes(blueprints_mod, monkeypatch):
+    from types import SimpleNamespace
+
+    from swfactory.backend_scm import BackendScm
+
+    scm = BackendScm(
+        repo="zozo123/ariflow-swfactory",
+        base_branch="main",
+        backend_url="http://localhost:8082",
+        backend_token="t" * 40,
+        cell_id="cell_" + "a" * 24,
+        epoch=1,
+        policy_digest="policy:" + "b" * 64,
+    )
+    ctx = SimpleNamespace(scm=scm)
+    transitions = []
+    monkeypatch.setattr(blueprints_mod, "_ctx", lambda *args: ctx)
+    monkeypatch.setattr(
+        blueprints_mod, "_cell_transition", lambda job, state, context, suffix: transitions.append(state)
+    )
+    result = {"state": "pending", "reason": "tests running"}
+    monkeypatch.setattr(scm, "autonomous_merge", lambda revision: result)
+    task = blueprints_mod._merge_task("autonomous", 180)
+    assert task.kwargs["timeout"] == 180
+    check = task.function
+    context = {"dag_run": SimpleNamespace(run_id="run")}
+    waiting = check({"job_idx": 0}, **context)
+    assert not waiting.is_done and transitions == []
+    result = {"state": "merged", "sha": "c" * 40}
+    completed = check({"job_idx": 0}, **context)
+    assert completed.is_done and completed.xcom_value == result
+    assert transitions == ["success"]
+
+
+def test_autonomous_merge_sensor_releases_worker_while_ci_runs(dagbag):
+    from swfactory.autonomy import load_policy
+
+    sensor = dagbag.dags["autonomous"].get_task("job.merge")
+    assert sensor.mode == "reschedule"
+    assert sensor.poke_interval == 30
+    assert sensor.timeout == load_policy().merge_timeout_s
+    assert "job.deliver" in sensor.upstream_task_ids
+    assert sensor.downstream_task_ids == {"job.metrics"}

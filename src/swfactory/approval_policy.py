@@ -32,8 +32,8 @@ from typing import Any, Literal
 from swfactory.config import FACTORY_ROOT
 from swfactory.models import Approval, StageError
 
-GateMode = Literal["human", "auto"]
-GATE_MODES: tuple[GateMode, ...] = ("human", "auto")
+GateMode = Literal["human", "auto", "policy"]
+GATE_MODES: tuple[GateMode, ...] = ("human", "auto", "policy")
 
 APPROVE = "Approve"
 REJECT = "Reject"
@@ -160,6 +160,8 @@ def approval_from_response(
     agent: str = "scripted",
 ) -> Approval:
     """Turn one recorded gate response into an Approval, or refuse to invent one."""
+    if gate_mode == "policy":
+        raise StageError("policy", "policy gates must be answered by the managed backend")
     if not response:
         replay = replay_approval(gate, fixture_path=fixture_path, managed=managed, scm=scm, agent=agent)
         if replay is not None:
@@ -186,7 +188,11 @@ def approval_from_response(
     # Case-folded: "AUTO" recorded actor='AUTO', mode='human' and impersonated the runtime's own
     # actor name in approvals.json, which is the record an auditor reads to see who approved.
     folded = actor.casefold()
-    if folded == AUTO_ACTOR.casefold() or folded.startswith(REPLAY_ACTOR_PREFIX.casefold()):
+    if (
+        folded == AUTO_ACTOR.casefold()
+        or folded.startswith(REPLAY_ACTOR_PREFIX.casefold())
+        or folded.startswith("policy:")
+    ):
         raise StageError("policy", f"gate {gate!r} response claims the reserved actor {actor!r}")
     responded_at = _responded_at(response)
     if responded_at is None:
@@ -258,7 +264,14 @@ def check_recorded(
             f"approval for gate {gate!r} is bound to Cell {approval.cell_id}/{approval.cell_epoch}, "
             f"not {cell_id}/{cell_epoch}",
         )
-    if gate_mode == "human" and approval.mode == "auto":
+    if gate_mode == "policy" and (approval.mode != "policy" or not approval.actor.startswith("policy:")):
+        raise StageError("policy", "policy gate lacks a policy-revision decision")
+    if approval.mode == "policy":
+        from swfactory.autonomy import load_policy
+
+        if not managed or gate_mode != "policy" or approval.actor != "policy:" + load_policy().revision:
+            raise StageError("policy", "autonomous approval has stale or undeclared policy authority")
+    if gate_mode == "human" and approval.mode in {"auto", "policy"}:
         raise StageError("policy", f"gate {gate!r} is declared human; an automatic decision cannot satisfy it")
     if approval.mode == "replay" and managed:
         raise StageError(

@@ -2,13 +2,15 @@
 
 This repository is an **Airflow-governed software atelier**:
 
-`work order -> Cell -> Airflow -> bounded agent work -> evidence -> PR -> human merge`
+`work order -> Cell -> Airflow -> bounded agent work -> evidence -> PR -> authorized merge`
 
 ## Authority
 
 - **Airflow is the only lifecycle scheduler.** Do not create a competing agent loop.
 - Outer harnesses submit, inspect, answer human gates, and verify evidence.
-- Inner stage agents **never commit, push, or open PRs**; the factory owns publication.
+- Inner stage agents **never commit, push, open PRs, or merge**; the backend owns managed mutations.
+- Autonomous gates follow `config/autonomous.toml`. Policy, budgets, protections, review skill,
+  and authority implementation changes remain human maintenance PRs.
 - Rust is operator-side only; **never run Rust inside a work cell**.
 - Cell identity + epoch fence external mutations. Never bypass that boundary.
 - Never place service/GitHub credentials in a stage sandbox.

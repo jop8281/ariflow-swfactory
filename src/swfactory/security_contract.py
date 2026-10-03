@@ -86,11 +86,16 @@ class CanonicalPolicy:
             raise ValueError("factory policy line must be nonempty")
         if not repo:
             raise ValueError("factory policy repo must be nonempty")
+        metadata = (("line", line),)
+        if line == "autonomous":
+            from swfactory.autonomy import load_policy
+
+            metadata += (("autonomy_revision", load_policy().revision),)
         return cls(
             repo=repo,
             target=f"{directory}@{base_branch}",
             sandbox_provider=sandbox,
-            metadata=(("line", line),),
+            metadata=metadata,
         )
 
     def digest(self) -> str:

@@ -289,7 +289,7 @@ class Approval(BoundaryModel):
     actor: str = Field(min_length=1)  # os user, Airflow responded_by_user, "auto" or "replay:<id>"
     at: datetime
     artifact_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
-    mode: Literal["human", "auto", "replay"] = "human"
+    mode: Literal["human", "auto", "replay", "policy"] = "human"
     cell_id: str | None = None
     cell_epoch: int | None = Field(default=None, ge=1)
     inputs_digest: str | None = Field(default=None, pattern=r"^inputs:[a-f0-9]{64}$")

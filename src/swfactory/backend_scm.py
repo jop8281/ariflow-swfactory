@@ -36,6 +36,7 @@ class BackendScm:
         policy_digest: str,
         actor: str = "airflow-worker",
     ) -> None:
+        self.autonomous_evidence: dict | None = None
         self.repo = repo
         self.base_branch = base_branch
         self.backend_url = backend_url.rstrip("/")
@@ -83,6 +84,8 @@ class BackendScm:
                 **self._identity(operation_key),
                 "base_branch": self.base_branch,
                 "branch": branch,
+                "revision": self.autonomous_evidence.get("revision") if self.autonomous_evidence else None,
+                "autonomous_evidence": self.autonomous_evidence,
                 "patch_b64": base64.b64encode(patch).decode("ascii"),
                 "title": title,
                 "body": body,
@@ -95,6 +98,15 @@ class BackendScm:
         if not isinstance(url, str) or not url.startswith("https://"):
             raise StageError("scm", "backend publication returned no HTTPS pull-request URL")
         return url
+
+    def autonomous_gate(self, **evidence: Any) -> dict:
+        gate = str(evidence["gate"])
+        return self._post("/scm/policy-gate", {**self._identity(f"policy_gate:{gate}"), **evidence})
+
+    def autonomous_merge(self, revision: str) -> dict:
+        return self._post(
+            "/scm/merge", {**self._identity("autonomous_merge"), "revision": revision, "base_branch": self.base_branch}
+        )
 
     def open_issue(self, *, title: str, body: str, labels: Sequence[str]) -> str:
         digest = hashlib.sha256((title + "\0" + body).encode()).hexdigest()[:24]

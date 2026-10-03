@@ -282,9 +282,15 @@ def test_the_gate_refuses_a_factory_authored_control_plane_change(tmp_path: Path
 
 
 def test_the_gate_permits_ordinary_work(tmp_path: Path) -> None:
-    done = _run_gate(tmp_path, "docs/selfhost.md\nsrc/swfactory/metrics.py\n")
+    done = _run_gate(tmp_path, "docs/selfhost.md\nsrc/swfactory/dispatch.py\n")
     assert done.returncode == 0, done.stdout + done.stderr
     assert "no protected path touched" in done.stdout
+
+
+def test_budget_and_review_evidence_cannot_be_rewritten_as_ordinary_work(tmp_path: Path) -> None:
+    done = _run_gate(tmp_path, "src/swfactory/metrics.py\n")
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "protected by 'src/swfactory/metrics.py'" in done.stdout
 
 
 def test_the_gate_waives_tests_because_build_may_add_them(tmp_path: Path) -> None:

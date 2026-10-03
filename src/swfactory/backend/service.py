@@ -431,6 +431,19 @@ class Factory:
         issues = [i.strip() for i in issues]
         if len(set(issues)) != len(issues):
             raise ValueError("duplicate issue references are not allowed")
+        if line.name == "autonomous":
+            from swfactory.autonomy import load_policy
+            from swfactory.scm import GitHubScm
+
+            policy = load_policy()
+            if line.limits.budget_usd > policy.budget_usd:
+                raise Refused(403, "line budget exceeds autonomous policy")
+            for ref in issues:
+                if not ref.isdigit():
+                    raise Refused(400, "autonomous intake requires numeric GitHub issues")
+                issue = GitHubScm(self.repo, policy.base_branch).fetch_issue(ref)
+                if reason := policy.issue_reason(issue, self.repo):
+                    raise Refused(403, f"autonomous triage blocked: {reason}")
         targets = body.get("targets", [])
         if not isinstance(targets, list) or any(not isinstance(t, str) for t in targets):
             raise ValueError("targets must be an array of repository names")

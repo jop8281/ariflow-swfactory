@@ -60,6 +60,8 @@ packages = ["src/swfactory"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "blueprints" = "swfactory/_assets/blueprints"
+"config/autonomous.toml" = "swfactory/_assets/config/autonomous.toml"
+"factory.toml" = "swfactory/_assets/factory.toml"
 "demo" = "swfactory/_assets/demo"
 ".claude/hooks" = "swfactory/_assets/.claude/hooks"
 "REVIEW.md" = "swfactory/_assets/REVIEW.md"

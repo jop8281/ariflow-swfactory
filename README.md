@@ -441,6 +441,7 @@ A merge callback already in flight is not interrupted or rolled back.
 | `factory.population-provider-adapter` | `experimental` | `swfactory.population_adapter.HttpPopulationAdapter via swfactory.backend.population_service` | tests/test_population_adapter.py; tests/test_backend_population.py; tests/test_managed_population_e2e.py |
 | `factory.adaptive-information-budget` | `experimental` | `swfactory.adaptive_information; swfactory population-budget; swfactory.recursive_search.plan_adaptive_round; managed population stage retention` | tests/test_adaptive_information.py and tests/test_recursive_search.py |
 | `factory.formal-claims` | `experimental` | `swfactory.formal_claims; swfactory.justification_graph; swfactory.crystallization; formal/authority/AuthorityKernel.tla` | tests/test_formal_claims.py; tests/test_justification_graph.py; tests/test_crystallization.py |
+| `autonomous.issue-to-merge` | `experimental` | `swfactory.backend.autonomous_service.operation -> Airflow autonomous DAG` | tests/test_autonomy.py and tests/test_dag_parity.py |
 
 <!-- capability-inventory:end -->
 
@@ -490,3 +491,5 @@ and [open issues](https://github.com/zozo123/ariflow-swfactory/issues?q=is%3Aiss
 The earlier [execution plan #2040](https://github.com/zozo123/ariflow-swfactory/issues/2040) and
 [convergence roadmap #2022](https://github.com/zozo123/ariflow-swfactory/issues/2022) are retained as
 historical context. Licensed under [Apache 2.0](LICENSE).
+
+For bounded unattended issue-to-merge operation, see [autonomous runs](docs/autonomous.md).

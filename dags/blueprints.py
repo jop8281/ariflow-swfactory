@@ -52,8 +52,8 @@ def gate_mode(gate: dict[str, Any]) -> str:
         raise ValueError(f"gate auto must be a boolean, not {auto!r}")
     if mode is None:
         return "auto" if auto else "human"
-    if mode not in ("human", "auto"):
-        raise ValueError(f"gate mode must be one of ['human', 'auto'], not {mode!r}")
+    if mode not in ("human", "auto", "policy"):
+        raise ValueError(f"gate mode must be one of ['human', 'auto', 'policy'], not {mode!r}")
     if auto is not None and auto is not (mode == "auto"):
         raise ValueError(f"gate declares mode {mode!r} and auto {auto!r}, which contradict each other")
     return mode
@@ -83,6 +83,11 @@ def read_shape(path: Path) -> dict[str, Any]:
         "max_active_runs": int(trigger.get("max_active_runs") or (1 if cron else 16)),
         # a run may live no longer than its sandbox: past the TTL the cell is gone either way
         "run_timeout": timedelta(seconds=int(data.get("sandbox", {}).get("ttl_s", 172_800))),
+        "merge_timeout": (
+            int(tomllib.loads((FACTORY_ROOT / "config/autonomous.toml").read_text())["merge_timeout_s"])
+            if data.get("blueprint", {}).get("name") == "autonomous"
+            else 7200
+        ),
         "order": list(data["stages"]["order"]),
         "gates": {g["after"]: g for g in data.get("gates", [])},
         "stage_timeout": timedelta(hours=int(limits.get("stage_timeout_h", 3))),
@@ -144,7 +149,7 @@ def _stage_task(name: str, stage: str, shape: dict[str, Any], outlets: list[Asse
     def _run(job: dict, **context: Any) -> dict:
         ctx = _ctx(name, job, context["dag_run"].run_id)
         result = _stage_fn(stage)(ctx).model_dump()
-        if stage == "deliver":
+        if stage == "deliver" and name != "autonomous":
             _cell_transition(job, "success", context, "delivered")
         return result
 
@@ -183,19 +188,26 @@ def _record_task(name: str, stage: str, mode: str):
         from swfactory.stages import record_approval
 
         ti = context["ti"]
-        response = ti.xcom_pull(task_ids=f"{GROUP_ID}.approve_{stage}", map_indexes=ti.map_index)
+        response = (
+            ti.xcom_pull(task_ids=f"{GROUP_ID}.approve_{stage}", map_indexes=ti.map_index) if mode != "policy" else None
+        )
         ctx = _ctx(name, job, context["dag_run"].run_id)
         # A missing/empty/malformed response raises here rather than defaulting to Approve: the
         # gate task can be marked successful without anyone answering, and that is not an approval.
-        approval = approval_from_response(
-            gate=stage,
-            gate_mode=mode,
-            response=response,
-            fixture_path=ctx.cfg.gate_replay,
-            managed=bool(job.get("cell_managed")),
-            scm=ctx.cfg.scm,
-            agent=ctx.cfg.agent,
-        )
+        if mode == "policy":
+            from swfactory.autonomy import policy_approval
+
+            approval = policy_approval(ctx, stage)
+        else:
+            approval = approval_from_response(
+                gate=stage,
+                gate_mode=mode,
+                response=response,
+                fixture_path=ctx.cfg.gate_replay,
+                managed=bool(job.get("cell_managed")),
+                scm=ctx.cfg.scm,
+                agent=ctx.cfg.agent,
+            )
         record_approval(ctx, approval)
         if approval.decision == "reject":
             _cell_transition(job, "rejected", context, f"rejected_{stage}")
@@ -223,6 +235,29 @@ def _setup_task(name: str, shape: dict[str, Any]):
         return result
 
     return setup
+
+
+def _merge_task(name: str, timeout_s: int):
+    @task.sensor(
+        task_id="merge", mode="reschedule", poke_interval=30, timeout=timeout_s, on_failure_callback=_failure_callback
+    )
+    def merge(job: dict, **context: Any):
+        from airflow.sdk import PokeReturnValue
+
+        from swfactory.autonomy import load_policy
+        from swfactory.backend_scm import BackendScm
+        from swfactory.models import StageError
+
+        ctx = _ctx(name, job, context["dag_run"].run_id)
+        if not isinstance(ctx.scm, BackendScm):
+            raise StageError("policy", "autonomous merge requires managed SCM")
+        result = ctx.scm.autonomous_merge(load_policy().revision)
+        done = result.get("state") == "merged"
+        if done:
+            _cell_transition(job, "success", context, "merged")
+        return PokeReturnValue(is_done=done, xcom_value=result)
+
+    return merge
 
 
 def _metrics_task(name: str):
@@ -299,10 +334,17 @@ def build_dag(shape: dict[str, Any]) -> DAG:
                 gate = shape["gates"].get(stage)
                 if gate is not None:
                     mode = gate_mode(gate)
-                    approve = _approve_task(name, stage, gate, mode)
                     record = _record_task(name, stage, mode)(job)
-                    prev >> approve >> record
+                    if mode == "policy":
+                        prev >> record
+                    else:
+                        approve = _approve_task(name, stage, gate, mode)
+                        prev >> approve >> record
                     prev = record
+            if name == "autonomous":
+                merge = _merge_task(name, shape["merge_timeout"])(job)
+                prev >> merge
+                prev = merge
             metrics = _metrics_task(name)(job)
             prev >> metrics
             metrics >> _teardown_task(name)(job).as_teardown(setups=setup)

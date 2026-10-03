@@ -11,14 +11,16 @@ name: dispatch-factory
 # with a notice. GitHub-hosted dispatch requires HTTPS and never follows redirects with the token.
 on:
   issues:
-    types: [labeled]
+    types: [opened, labeled, reopened]
 permissions:
   contents: read
   issues: read
 jobs:
   submit:
     if: >-
-      (github.event.label.name == 'factory' || startsWith(github.event.label.name, 'factory:'))
+      github.event.action == 'labeled'
+      && github.event.label.name != 'factory:autonomous'
+      && (github.event.label.name == 'factory' || startsWith(github.event.label.name, 'factory:'))
       && github.event.label.name != 'factory:blocked'
     runs-on: ubuntu-latest
     env:
@@ -58,3 +60,39 @@ jobs:
             409) echo "::error::issue #$ISSUE_NUMBER already has a finished work order on line $line"; exit 1 ;;
             *)   echo "::error::work-order submission failed with HTTP $code"; exit 1 ;;
           esac
+
+  autonomous-triage:
+    # Every new issue enters triage; eligibility is decided by the backend's checked-in policy.
+    runs-on: ubuntu-latest
+    env:
+      SWF_BACKEND_URL: ${{ secrets.SWF_BACKEND_URL }}
+      SWF_BACKEND_TOKEN: ${{ secrets.SWF_BACKEND_TOKEN }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - name: Triage through the autonomous policy
+        run: |
+          set -euo pipefail
+          if [ -z "$SWF_BACKEND_URL" ] || [ -z "$SWF_BACKEND_TOKEN" ]; then
+            echo "::error::Autonomous intake requires a deployed backend and SWF_BACKEND_URL / SWF_BACKEND_TOKEN. No issue was admitted."
+            exit 1
+          fi
+          case "$SWF_BACKEND_URL" in
+            https://*) ;;
+            *) echo "::error::SWF_BACKEND_URL must use https://"; exit 1 ;;
+          esac
+          payload=$(python3 -c 'import json,os; print(json.dumps({"issue":os.environ["ISSUE_NUMBER"]}))')
+          body=$(mktemp)
+          code=$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+            --proto '=https' --proto-redir '=https' --max-redirs 0 --max-time 60 -X POST \
+            "${SWF_BACKEND_URL%/}/v1/scm/triage" \
+            -H "Authorization: Bearer $SWF_BACKEND_TOKEN" \
+            -H "Content-Type: application/json" --data "$payload")
+          if [ "$code" != 200 ]; then
+            echo "::error::Autonomous triage failed with HTTP $code; no successful admission is claimed."
+            exit 1
+          fi
+          python3 - "$body" <<'PYTHON'
+          import json, sys
+          result = json.load(open(sys.argv[1]))
+          print("Autonomous intake:", result.get("state"), result.get("reason", "admitted"))
+          PYTHON
