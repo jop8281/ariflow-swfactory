@@ -6,6 +6,8 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-03
+
 - Reject skipped or unreachable live-policy comparisons and keep webhook response bodies intact
   when diagnostic logging fails.
 - Make unavailable-provider coverage independent of installed upstream backends, and describe
@@ -38,8 +40,6 @@ All notable changes to this project will be documented here. The format follows
   diagnostics to stderr. Preserve capability graduation requirements in proposals and detect each
   missing test reference, including directories incorrectly cited as test files. Clarify that an
   inventory audit does not execute the cited tests or establish runtime support.
-
-## [2.3.0] - 2026-09-24
 
 - Close the live branch-protection gap without weakening the declared policy: the historical protected
   `test` context is now a fail-closed compatibility aggregate over exact-SHA `candidate-readiness`,
