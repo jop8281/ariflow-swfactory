@@ -686,10 +686,14 @@ def _live_diff_problems(repo_root: Path) -> list[str]:
     that conclusion as proof the live settings were compared, which is how an unverified run was
     cited as the verification of issue #2048.
     """
-    path = repo_root / ".github" / "workflows" / "promotion-policy.yml"
+    path = repo_root / ".github" / "workflows" / "live-policy-audit.yml"
     if not path.is_file():
-        return ["promotion-policy.yml is missing; live branch-protection drift is not checked"]
+        return ["live-policy-audit.yml is missing; live branch-protection drift is not checked"]
     document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    # PyYAML 1.1 parses the unquoted Actions `on` key as True.
+    triggers = document.get("on", document.get(True))
+    if not isinstance(triggers, Mapping) or set(triggers) != {"workflow_dispatch"}:
+        return ["live-policy-audit.yml must be manual-only; development must not require admin credentials"]
     jobs = document.get("jobs") or {}
     problems: list[str] = []
     found = False
@@ -705,29 +709,29 @@ def _live_diff_problems(repo_root: Path) -> list[str]:
             continue
         found = True
         if _condition(job) is not None:
-            problems.append(f"promotion-policy.yml job {job_name!r} has a condition that can skip the live diff")
+            problems.append(f"live-policy-audit.yml job {job_name!r} has a condition that can skip the live diff")
         if _fails_open_on_error(job.get("continue-on-error")):
             problems.append(
-                f"promotion-policy.yml job {job_name!r} sets continue-on-error; "
+                f"live-policy-audit.yml job {job_name!r} sets continue-on-error; "
                 "a failed live diff still leaves the job green"
             )
         for step in diff_steps:
             if _condition(step) is not None:
-                problems.append("promotion-policy.yml live diff step has a condition that can skip the live diff")
+                problems.append("live-policy-audit.yml live diff step has a condition that can skip the live diff")
             if _fails_open_on_error(step.get("continue-on-error")):
                 problems.append(
-                    "promotion-policy.yml live diff step sets continue-on-error; "
+                    "live-policy-audit.yml live diff step sets continue-on-error; "
                     "a failed diff still leaves the job green"
                 )
             run = str(step.get("run"))
             if _EXIT_ZERO.search(run):
                 problems.append(
-                    "promotion-policy.yml live diff exits 0; a missing SWF_POLICY_ADMIN_TOKEN then "
+                    "live-policy-audit.yml live diff exits 0; a missing SWF_POLICY_ADMIN_TOKEN then "
                     "leaves the job green without reading branch protection"
                 )
             if _DIFF_STATUS_MASK.search(run) or _DIFF_SET_PLUS_E.search(run):
                 problems.append(
-                    "promotion-policy.yml suppresses the live diff status; detected drift or an API "
+                    "live-policy-audit.yml suppresses the live diff status; detected drift or an API "
                     "read failure can leave the job green"
                 )
             # Pin the reviewed command structure; merely finding commands in arbitrary shell
@@ -735,11 +739,11 @@ def _live_diff_problems(repo_root: Path) -> list[str]:
             lines = tuple(line.strip() for line in run.splitlines() if line.strip())
             if lines != tuple(_LIVE_DIFF_SCRIPT.splitlines()):
                 problems.append(
-                    "promotion-policy.yml live diff does not use the reviewed command structure; "
+                    "live-policy-audit.yml live diff does not use the reviewed command structure; "
                     "the step can succeed without a live diff"
                 )
     if not found:
-        return ["promotion-policy.yml never runs `promotion_policy.py diff`"]
+        return ["live-policy-audit.yml never runs `promotion_policy.py diff`"]
     return problems
 
 

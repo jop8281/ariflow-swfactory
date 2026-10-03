@@ -121,8 +121,17 @@ something it does not mention.
 `candidate-readiness` and a `protected-paths` result will sit unmergeable until it is rebased and
 re-run. Apply it when the queue is quiet, not in the middle of a fan-in.
 
-The drift check (`.github/workflows/promotion-policy.yml`) runs `audit` everywhere — offline,
-deterministic, and blocking — and then runs `diff` against the live API. Reading branch protection
-needs administrative scope, which `github.token` does not have. When `SWF_POLICY_ADMIN_TOKEN` is
-absent the step fails and names that the boundary was **not** verified. A green job means `diff`
-ran and found no drift. An unverified run is not a success.
+The development check (`.github/workflows/promotion-policy.yml`) runs `audit` on pushes and
+pull requests. It is offline and deterministic: no administrator token is needed. Its success
+means the checked-in policy and workflows agree; it does not verify live GitHub settings.
+
+Live settings are a separate, optional maintainer audit. Run it explicitly with:
+
+```bash
+gh workflow run live-policy-audit.yml --ref main
+```
+
+Only this manual workflow needs `SWF_POLICY_ADMIN_TOKEN`, with repository administration read
+permission. If invoked without that token, it fails rather than claim verification. Development
+works without configuring it. Branch protection remains disabled for the current early-development
+setup; issue #2048 remains open until enforcement is deliberately enabled and verified.

@@ -403,7 +403,7 @@ def _audit_with_ci_rewrite(tmp_path: Path, rewrite) -> list[str]:
     workflows.mkdir(parents=True)
     ci_text = (REPO / ".github/workflows/ci.yml").read_text()
     (workflows / "ci.yml").write_text(rewrite(ci_text))
-    for name in ("control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+    for name in ("control-plane-gate.yml", "release.yml", "promotion-policy.yml", "live-policy-audit.yml"):
         (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
     return promotion_policy.audit_policy(POLICY, tmp_path)
 
@@ -464,8 +464,9 @@ def test_release_verifies_candidate_evidence_before_it_publishes_anything() -> N
 def test_the_drift_check_workflow_exists_and_audits_the_policy() -> None:
     text = (REPO / ".github/workflows/promotion-policy.yml").read_text()
     assert "scripts/promotion_policy.py audit" in text
-    assert "scripts/promotion_policy.py diff" in text
-    live = _workflow("promotion-policy.yml")["jobs"]["policy"]["steps"][-1]["run"]
+    assert "scripts/promotion_policy.py diff" not in text
+    assert "SWF_POLICY_ADMIN_TOKEN" not in text
+    live = _workflow("live-policy-audit.yml")["jobs"]["policy"]["steps"][-1]["run"]
     assert "::error::" in live
     assert "exit 1" in live
     assert "exit 0" not in live
@@ -475,9 +476,9 @@ def test_live_diff_audit_rejects_a_green_unverified_token_gap(tmp_path: Path) ->
     """Run 36297538879 exited 0 when the admin token was missing and was later cited as a live diff."""
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
-    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml", "live-policy-audit.yml"):
         (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
-    drift = workflows / "promotion-policy.yml"
+    drift = workflows / "live-policy-audit.yml"
     drift.write_text(drift.read_text().replace("exit 1", "exit 0", 1))
 
     problems = promotion_policy.audit_policy(POLICY, tmp_path)
@@ -488,9 +489,9 @@ def test_live_diff_audit_rejects_a_green_unverified_token_gap(tmp_path: Path) ->
 def _promotion_repo(tmp_path: Path) -> Path:
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
-    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml", "live-policy-audit.yml"):
         (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
-    return workflows / "promotion-policy.yml"
+    return workflows / "live-policy-audit.yml"
 
 
 def test_live_diff_audit_rejects_continue_on_error(tmp_path: Path) -> None:
@@ -541,9 +542,9 @@ def test_live_diff_audit_rejects_a_positive_token_test_that_skips_the_diff(tmp_p
 def test_live_diff_audit_rejects_skipping_the_diff_when_the_token_is_missing(tmp_path: Path) -> None:
     workflows = tmp_path / ".github" / "workflows"
     workflows.mkdir(parents=True)
-    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml", "live-policy-audit.yml"):
         (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
-    drift = workflows / "promotion-policy.yml"
+    drift = workflows / "live-policy-audit.yml"
     original = drift.read_text()
     skipped = original.replace(
         'echo "::error::Reading protection requires admin scope. See docs/promotion-policy.md."\n'
@@ -600,3 +601,13 @@ def test_superseded_live_gate_does_not_start_more_long_harnesses() -> None:
     assert "cancelled()" in str(by_id["python_harness"]["if"])
     assert "cancelled()" in str(by_name["Keep scheduler evidence when either harness fails"]["if"])
     assert "cancelled()" in str(by_name["Propagate harness failures to the job result"]["if"])
+
+
+@pytest.mark.parametrize("event", ["push", "pull_request", "schedule"])
+def test_live_admin_audit_cannot_become_an_automatic_dev_requirement(tmp_path: Path, event: str) -> None:
+    drift = _promotion_repo(tmp_path)
+    document = yaml.safe_load(drift.read_text())
+    triggers = document.get("on", document.get(True))
+    triggers[event] = None
+    drift.write_text(yaml.safe_dump(document))
+    assert any("manual-only" in problem for problem in promotion_policy.audit_policy(POLICY, tmp_path))

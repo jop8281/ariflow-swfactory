@@ -6,6 +6,9 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Keep development policy checks offline; move the admin-token-dependent live settings audit
+  into a separate manual workflow. Development no longer requires an administration credential.
+
 - Submit durable webhook deliveries concurrently with four bounded workers by default; configure
   1–32 workers without bypassing backend admission or Airflow execution limits.
 

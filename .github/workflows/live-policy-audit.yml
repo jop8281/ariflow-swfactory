@@ -1,0 +1,32 @@
+name: live-policy-audit
+# Optional maintainer audit; never required for development or a claim of offline correctness.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12" }
+      - run: uv sync
+
+      - name: The policy agrees with the live repository settings
+        # A missing token used to print a warning and exit 0. GitHub still recorded success, and
+        # run 36297538879 was later cited as a live diff even though its log said the token was
+        # absent. Fail the step so a green job means the diff command actually ran.
+        env:
+          GH_TOKEN: ${{ secrets.SWF_POLICY_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::SWF_POLICY_ADMIN_TOKEN is not set; live branch protection was NOT verified."
+            echo "::error::Reading protection requires admin scope. See docs/promotion-policy.md."
+            exit 1
+          fi
+          uv run python scripts/promotion_policy.py diff
