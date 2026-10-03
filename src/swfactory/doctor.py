@@ -41,7 +41,10 @@ Runner = Callable[[Sequence[str]], str]
 Which = Callable[[str], str | None]
 ToolsetLoader = Callable[[str], object]
 
-# Hosts the deny-by-default gateway profile must allow for a factory run to work.
+# Hosts the deny-by-default gateway profile must allow for a factory run to work. The last two are
+# the ``astral.sh`` uv installer's redirect targets (301 to releases.astral.sh, whose asset download
+# falls back to release-assets.githubusercontent.com); without them the installer gets a 403.
+# Kept in sync with ``ALLOW_HOSTS`` in deploy/islo/bootstrap.sh (pinned by tests/test_doctor.py).
 GATEWAY_ALLOW_HOSTS = (
     "api.anthropic.com",
     "github.com",
@@ -49,6 +52,8 @@ GATEWAY_ALLOW_HOSTS = (
     "pypi.org",
     "files.pythonhosted.org",
     "astral.sh",
+    "releases.astral.sh",
+    "release-assets.githubusercontent.com",
 )
 # ``islo login --tool claude`` and ``--tool anthropic`` both exist; either satisfies the check.
 _CLAUDE_INTEGRATIONS = frozenset({"claude", "anthropic"})

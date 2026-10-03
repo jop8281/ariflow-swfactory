@@ -1,0 +1,206 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 103634,
+  "duration_ms": 104047,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 1184,
+  "is_error": false,
+  "iteration": 1,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 40674,
+      "cacheReadInputTokens": 145534,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 0.5378544999999999,
+      "inputTokens": 465,
+      "maxOutputTokens": 64000,
+      "outputTokens": 8342,
+      "provider": "firstParty",
+      "thinkingTokens": 2314,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 11,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "eecf8c3c-dc89-41a3-b8ee-0799921f2f79",
+  "stage": "plan",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "files": [
+      "tests/test_doctor.py",
+      "src/swfactory/doctor.py",
+      "deploy/islo/bootstrap.sh",
+      "deploy/islo/deploy.sh",
+      "docs/islo.md",
+      "docs/selfhost.md"
+    ],
+    "risks": [
+      "Vacuous parity: a regex that silently stops matching after a reformat would make R8 pass trivially. Bounded by R13 \u2014 the helper raises on an empty parse, and the parse rule (text between `ALLOW_HOSTS=(` and the next `)`, split on whitespace) is kept exact by leaving the array a single unquoted, comment-free line.",
+      "Drift the other way: someone adds a host to bootstrap.sh but not to the Python tuple. Bounded by the set-equality direction of R8 (extras fail too, with a named symmetric difference).",
+      "Brittle doc assertions: the prose checks (R9-R12) are substring-based and could fail on innocent rewording. Bounded by keeping them coarse \u2014 bare hostnames and the one retired phrase only, no whole-sentence or line-number pinning.",
+      "Hidden six-host assumptions elsewhere in the suite (for example a fixture asserting `rule_count == 6` or a length check). Bounded by running the whole suite, not just tests/test_doctor.py; `rule_count` in `tests/test_doctor.py:31` is canned islo output and is not a rule enumeration, and `_check_gateway` never enumerates rules, so no check outcome or the `11 checks` table shape changes.",
+      "Allowlist widening on a deny-by-default profile. Bounded to two narrow, vendor-owned redirect targets of tooling already allowed (`astral.sh`, `github.com`): no wildcard, no CDN-wide entry, `crates.io` still absent so factory.toml's Python-only test rationale stays true, and `release-assets.githubusercontent.com` serves release assets only (no API, no write, no token in the cell).",
+      "Scope creep into `config.SRT_DEFAULT_DOMAINS` (src/swfactory/config.py:28) or `deploy/islo/orchestrator/islo.yaml:12`, neither named by the intent. Bounded by the declared `files` list: both are left unchanged, and the residual inconsistency between `deploy.sh`'s comment and `orchestrator/islo.yaml`'s near-duplicate list is reported rather than silently fixed.",
+      "Self-hosting hazard \u2014 a cell widening its own cage. Bounded by R14: the change lives only in `doctor.py`, `deploy/**`, `docs/**` and `tests/**`; the confinement modules and the contract stay byte-identical, verified with `git diff --name-only`."
+    ],
+    "steps": [
+      "Read the five statements of the allowlist as they stand today (src/swfactory/doctor.py:45-52, deploy/islo/bootstrap.sh:23, deploy/islo/deploy.sh:12-13, docs/islo.md:10 and :52, docs/selfhost.md:146-150) and the existing gateway assertions in tests/test_doctor.py:166-175, so the new hosts are appended in the same order and shape everywhere.",
+      "In tests/test_doctor.py, add a module-level helper that extracts hosts from shell text by taking the substring between `ALLOW_HOSTS=(` and the next `)` and splitting on whitespace, and that raises (never returns an empty set) when the marker is absent or the parse yields nothing.",
+      "In tests/test_doctor.py, add the hermetic tests: exact-tuple pin of `doctor.GATEWAY_ALLOW_HOSTS` (six existing entries unchanged and in place, plus `releases.astral.sh` and `release-assets.githubusercontent.com`); `gateway_fix('swfactory')` names both new hosts and keeps its `islo gateway create --name <profile> --default-action deny --internet-access true` prefix and `add-rule --host <host> --action allow` substring; doctor/bootstrap parity via the helper with a readable set diff on failure; the helper's loud-failure behaviour on missing/reformatted `ALLOW_HOSTS`; and coarse substring checks of the three prose sites. All reads go through `ROOT` / `Path.read_text` only \u2014 no subprocess, no network, no `islo`/`curl`.",
+      "Run `uv run --group dev pytest tests/test_doctor.py` and confirm the new tests fail for the right reason (missing hosts), not on an import or parse error.",
+      "Append `\"releases.astral.sh\"` and `\"release-assets.githubusercontent.com\"` to `GATEWAY_ALLOW_HOSTS` in src/swfactory/doctor.py after `\"astral.sh\"`, keeping the tuple a flat frozen tuple of bare lowercase hostnames, and extend the comment above it to say these two are the `astral.sh` installer's redirect targets (301 to releases.astral.sh; GitHub-asset fallback to release-assets.githubusercontent.com).",
+      "Append the same two hosts, in the same order, to the `ALLOW_HOSTS=(...)` array on deploy/islo/bootstrap.sh:23, leaving it a single unquoted, comment-free line so the text parse stays exact and the existing idempotent `add-rule` loop picks them up unchanged.",
+      "Add both hosts to the `allow:` prerequisite comment for the orchestrator profile in deploy/islo/deploy.sh:12-13, alongside the existing `islo.dev` / `releases.islo.dev` entries, since that profile's setup script runs the same `astral.sh` uv installer.",
+      "Add both hosts to the two gateway host lists in docs/islo.md: the Agents row of the trust table (line 10) and the `gateway` row of the bootstrap table (line 52).",
+      "Rewrite docs/selfhost.md:147-150: drop the \"unsettled whether `islo use --init minimal` executes the repo-root `islo.yaml` setup script\" claim and state that it does execute it, that the script failed under the six-host allowlist with `curl: (22) The requested URL returned error: 403`, that the cause is the `astral.sh` installer's redirects to `releases.astral.sh` and the GitHub-asset fallback to `release-assets.githubusercontent.com`, and record the observation (2026-09-27, islo CLI 0.53.1) \u2014 while preserving the surrounding unproven-evidence claims (no real-model run, no islo run, no self-authored merged PR).",
+      "Re-run `uv run --group dev pytest tests/test_doctor.py` (green, including the pre-existing `test_missing_gateway_profile`), then the full `uv run --group dev pytest` suite to confirm nothing else pinned the six-host list and the suite stays hermetic.",
+      "Confirm `git diff --name-only` lists only the six declared files and no entry of factory.toml's `protected` list (factory.toml, blueprints/, dags/, scripts/, .github/, agent.py, sandbox.py, stages.py, ...)."
+    ],
+    "tests": [
+      "R1: `test_gateway_allow_hosts_pin` asserts `\"releases.astral.sh\" in doctor.GATEWAY_ALLOW_HOSTS`.",
+      "R2: same test asserts `\"release-assets.githubusercontent.com\" in doctor.GATEWAY_ALLOW_HOSTS`.",
+      "R3: same test pins the full tuple by equality against the eight expected hosts, with the six existing entries first and unchanged (nothing removed, renamed, reordered, or given a scheme/path).",
+      "R4: `test_gateway_fix_names_uv_redirect_targets` asserts `releases.astral.sh` appears in `doctor.gateway_fix(\"swfactory\")`.",
+      "R5: same test asserts `release-assets.githubusercontent.com` appears in `doctor.gateway_fix(\"swfactory\")`.",
+      "R6: same test asserts the returned string starts with `islo gateway create --name swfactory --default-action deny --internet-access true` and contains `add-rule --host <host> --action allow`, and every entry of `GATEWAY_ALLOW_HOSTS` appears in it (the existing `tests/test_doctor.py::test_missing_gateway_profile` must also still pass unmodified).",
+      "R7: `test_bootstrap_allow_hosts_match_doctor` asserts both new hosts are among the hosts parsed out of `deploy/islo/bootstrap.sh`'s `ALLOW_HOSTS` array.",
+      "R8: same test asserts `set(parsed) == set(doctor.GATEWAY_ALLOW_HOSTS)`, reporting the symmetric difference in the assertion message so a drift names the missing/extra hosts.",
+      "R9: `test_prose_allowlists_name_new_hosts` asserts both hosts appear in the `allow:` comment block of `deploy/islo/deploy.sh` (coarse substring check on the file text).",
+      "R10: same test asserts both hosts appear in the Agents trust-table row and the `gateway` bootstrap-table row of `docs/islo.md` (both gateway host lists, checked per line).",
+      "R11: `test_selfhost_doc_settles_init_minimal` asserts `docs/selfhost.md` no longer contains \"unsettled whether\" / the `--init minimal` uncertainty wording, and does contain `curl: (22)`, `403`, `releases.astral.sh`, `release-assets.githubusercontent.com`, `2026-09-27` and `0.53.1`.",
+      "R12: same test asserts the adjacent unproven-evidence claims survive: the paragraph still names `ANTHROPIC_API_KEY`/real model, `ISLO_API_KEY`/islo, and the un-merged self-authored pull request.",
+      "R13: `test_allow_hosts_parse_fails_loudly` feeds the helper shell text with no `ALLOW_HOSTS=` line, and text whose array is reformatted so no hosts can be extracted, and asserts it raises with a message naming the file/marker instead of returning an empty set (an empty parse can never become a vacuous pass).",
+      "R15: `test_new_allowlist_tests_are_hermetic` (and the tests above by construction) use only `ROOT`-relative `Path.read_text` and the imported `doctor` module \u2014 asserted by pinning that the helper takes text, not a command; the full `uv run --group dev pytest` suite still passes with no network, no `islo`, and no `curl`.",
+      "R14: repo-state check after the change \u2014 `git diff --name-only` lists exactly `src/swfactory/doctor.py`, `deploy/islo/bootstrap.sh`, `deploy/islo/deploy.sh`, `docs/islo.md`, `docs/selfhost.md`, `tests/test_doctor.py` and nothing from factory.toml's `protected` list."
+    ],
+    "work": [
+      {
+        "depends_on": [],
+        "files": [
+          "tests/test_doctor.py"
+        ],
+        "id": "tests",
+        "parallel_safe": true,
+        "role": "code_writer",
+        "tests": [
+          "R1: releases.astral.sh present in GATEWAY_ALLOW_HOSTS",
+          "R2: release-assets.githubusercontent.com present in GATEWAY_ALLOW_HOSTS",
+          "R3: full-tuple equality keeps the six existing hosts unchanged and in place",
+          "R4: gateway_fix names releases.astral.sh",
+          "R5: gateway_fix names release-assets.githubusercontent.com",
+          "R6: gateway_fix keeps its create prefix and `add-rule --host <host> --action allow` shape",
+          "R7: both new hosts parsed out of bootstrap.sh's ALLOW_HOSTS",
+          "R8: parsed bootstrap hosts == set(GATEWAY_ALLOW_HOSTS), with a readable diff",
+          "R9: deploy/islo/deploy.sh allow comment names both hosts",
+          "R10: both docs/islo.md gateway rows name both hosts",
+          "R11: docs/selfhost.md settles --init minimal with the 403 evidence, redirect hosts, date and CLI version",
+          "R12: the adjacent unproven-evidence claims survive",
+          "R13: the parse helper raises instead of returning an empty set",
+          "R15: the new tests read only repo files - no network, islo or curl"
+        ],
+        "title": "Add the hermetic allowlist tests to tests/test_doctor.py: tuple pin, gateway_fix host+shape pins, the shell-text ALLOW_HOSTS parse helper with loud empty-parse failure, doctor/bootstrap parity, and coarse prose checks"
+      },
+      {
+        "depends_on": [],
+        "files": [
+          "src/swfactory/doctor.py",
+          "deploy/islo/bootstrap.sh"
+        ],
+        "id": "allowlist",
+        "parallel_safe": true,
+        "role": "code_writer",
+        "tests": [
+          "R1: releases.astral.sh present in GATEWAY_ALLOW_HOSTS",
+          "R2: release-assets.githubusercontent.com present in GATEWAY_ALLOW_HOSTS",
+          "R3: six existing hosts unchanged",
+          "R4: gateway_fix names releases.astral.sh",
+          "R5: gateway_fix names release-assets.githubusercontent.com",
+          "R6: gateway_fix shape unchanged (existing test_missing_gateway_profile still passes)",
+          "R7: bootstrap.sh ALLOW_HOSTS lists both new hosts",
+          "R8: bootstrap array and the Python tuple hold the same host set",
+          "R14: only doctor.py and bootstrap.sh touched by this node"
+        ],
+        "title": "Append releases.astral.sh and release-assets.githubusercontent.com to doctor.GATEWAY_ALLOW_HOSTS and to bootstrap.sh's ALLOW_HOSTS array (kept parseable as one line)"
+      },
+      {
+        "depends_on": [
+          "allowlist"
+        ],
+        "files": [
+          "deploy/islo/deploy.sh",
+          "docs/islo.md",
+          "docs/selfhost.md"
+        ],
+        "id": "docs",
+        "parallel_safe": false,
+        "role": "code_writer",
+        "tests": [
+          "R9: deploy.sh allow comment names both hosts beside islo.dev / releases.islo.dev",
+          "R10: docs/islo.md trust-table row and bootstrap-table gateway row name both hosts",
+          "R11: docs/selfhost.md says --init minimal does run islo.yaml, quotes curl: (22) ... 403, names both redirect targets and records 2026-09-27 / islo 0.53.1",
+          "R12: no-real-model, no-islo and no-merged-self-authored-PR claims preserved",
+          "R14: only deploy.sh and the two docs touched by this node"
+        ],
+        "title": "State the eight-host allowlist in the prose sites: deploy.sh's orchestrator allow comment, both docs/islo.md gateway rows, and the docs/selfhost.md paragraph that now records the 403 and settles --init minimal"
+      }
+    ]
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 48,
+  "total_cost_usd": 0.5378544999999999,
+  "ttft_ms": 1714,
+  "ttft_stream_ms": 1184,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 40674
+    },
+    "cache_creation_input_tokens": 40674,
+    "cache_read_input_tokens": 145534,
+    "inference_geo": "",
+    "input_tokens": 465,
+    "iterations": [],
+    "output_tokens": 8342,
+    "output_tokens_details": {
+      "thinking_tokens": 2314
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "fa3eafc3-40e6-4c36-950c-68c23ada0a32"
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 from collections.abc import Sequence
@@ -189,6 +190,121 @@ def test_gateway_with_internet_disabled_fails() -> None:
     gw = by_name(checks)["gateway profile"]
     assert not gw.ok and "internet access must be enabled" in gw.detail
     assert exit_code(checks) == 1
+
+
+# ------------------------------------------------- the allow-list, stated in five places at once
+
+# The six hosts a run has always needed, plus the two redirect targets of the ``astral.sh`` uv
+# installer (301 to releases.astral.sh, asset download falling back to GitHub's release host).
+EXPECTED_GATEWAY_ALLOW_HOSTS = (
+    "api.anthropic.com",
+    "github.com",
+    "api.github.com",
+    "pypi.org",
+    "files.pythonhosted.org",
+    "astral.sh",
+    "releases.astral.sh",
+    "release-assets.githubusercontent.com",
+)
+UV_REDIRECT_HOSTS = ("releases.astral.sh", "release-assets.githubusercontent.com")
+ALLOW_HOSTS_MARKER = "ALLOW_HOSTS=("
+BOOTSTRAP = ROOT / "deploy" / "islo" / "bootstrap.sh"
+
+
+def allow_hosts_from_shell(text: str, source: str) -> set[str]:
+    """Hosts of a single-line bash ``ALLOW_HOSTS=(...)`` array, read as text -- no shell runs here.
+
+    Raises rather than returning an empty set: a parse that quietly stops matching after someone
+    reformats the array would turn the parity assertion below into a vacuous pass.
+    """
+    start = text.find(ALLOW_HOSTS_MARKER)
+    if start < 0:
+        raise AssertionError(f"{source}: no {ALLOW_HOSTS_MARKER!r} line; the parity check cannot read the allow-list")
+    body = text[start + len(ALLOW_HOSTS_MARKER) :]
+    end = body.find(")")
+    if end < 0:
+        raise AssertionError(f"{source}: {ALLOW_HOSTS_MARKER!r} is never closed; keep the array on one line")
+    hosts = set(body[:end].split())
+    if not hosts:
+        raise AssertionError(
+            f"{source}: {ALLOW_HOSTS_MARKER!r} parsed to no hosts; keep it one unquoted, comment-free line"
+        )
+    return hosts
+
+
+def test_gateway_allow_hosts_pin() -> None:
+    """Nothing removed or renamed (an already-bootstrapped profile stays valid); two hosts added."""
+    assert doctor.GATEWAY_ALLOW_HOSTS == EXPECTED_GATEWAY_ALLOW_HOSTS
+    for host in UV_REDIRECT_HOSTS:
+        assert host in doctor.GATEWAY_ALLOW_HOSTS
+    for host in doctor.GATEWAY_ALLOW_HOSTS:
+        assert host == host.lower() and "/" not in host, f"{host!r} must be a bare lowercase hostname"
+
+
+def test_gateway_fix_names_uv_redirect_targets() -> None:
+    fix = doctor.gateway_fix("swfactory")
+    assert fix.startswith("islo gateway create --name swfactory --default-action deny --internet-access true")
+    assert "add-rule --host <host> --action allow" in fix
+    for host in doctor.GATEWAY_ALLOW_HOSTS:
+        assert host in fix
+    for host in UV_REDIRECT_HOSTS:
+        assert host in fix
+
+
+def test_bootstrap_allow_hosts_match_doctor() -> None:
+    """One parity assertion so the Python tuple and the shell array can never drift apart again."""
+    parsed = allow_hosts_from_shell(BOOTSTRAP.read_text(encoding="utf-8"), "deploy/islo/bootstrap.sh")
+    for host in UV_REDIRECT_HOSTS:
+        assert host in parsed
+    expected = set(doctor.GATEWAY_ALLOW_HOSTS)
+    assert parsed == expected, (
+        f"deploy/islo/bootstrap.sh and swfactory.doctor disagree: "
+        f"missing from bootstrap.sh {sorted(expected - parsed)}, extra in bootstrap.sh {sorted(parsed - expected)}"
+    )
+
+
+def test_allow_hosts_parse_fails_loudly() -> None:
+    """An empty parse is a failure, never a vacuous pass."""
+    with pytest.raises(AssertionError, match=re.escape(ALLOW_HOSTS_MARKER)):
+        allow_hosts_from_shell("set -euo pipefail\nPROFILE=swfactory\n", "fake.sh")
+    with pytest.raises(AssertionError, match="no hosts"):
+        allow_hosts_from_shell('ALLOW_HOSTS=()\nALLOW_HOSTS+=("astral.sh")\n', "fake.sh")
+    with pytest.raises(AssertionError, match="never closed"):
+        allow_hosts_from_shell("ALLOW_HOSTS=(astral.sh\n", "fake.sh")
+
+
+def test_prose_allowlists_name_new_hosts() -> None:
+    """The three human-maintained statements of the same list: deploy.sh's comment, docs/islo.md x2."""
+    deploy = (ROOT / "deploy" / "islo" / "deploy.sh").read_text(encoding="utf-8")
+    allow_comment = deploy.split("allow:", 1)[1].split("islo environment create", 1)[0]
+    for host in UV_REDIRECT_HOSTS:
+        assert host in allow_comment, f"deploy/islo/deploy.sh's orchestrator allow: comment omits {host}"
+
+    islo_doc = (ROOT / "docs" / "islo.md").read_text(encoding="utf-8").splitlines()
+    agents_row = next(line for line in islo_doc if "**Agents**" in line)
+    gateway_row = next(line for line in islo_doc if line.startswith("| gateway |"))
+    for label, row in (("the Agents trust row", agents_row), ("the gateway bootstrap row", gateway_row)):
+        for host in UV_REDIRECT_HOSTS:
+            assert host in row, f"docs/islo.md: {label} omits {host}"
+
+
+def test_selfhost_doc_settles_init_minimal() -> None:
+    text = (ROOT / "docs" / "selfhost.md").read_text(encoding="utf-8")
+    assert "unsettled" not in text, "docs/selfhost.md still calls `islo use --init minimal` unsettled"
+    assert "must self-bootstrap" not in text
+    for evidence in ("curl: (22)", "403", *UV_REDIRECT_HOSTS, "2026-09-27", "0.53.1"):
+        assert evidence in text, f"docs/selfhost.md does not record {evidence!r}"
+    # Resolving that one uncertainty must not quietly retire the claims beside it.
+    assert "ANTHROPIC_API_KEY" in text and "ISLO_API_KEY" in text
+    assert "self-authored pull request has been merged" in text
+
+
+def test_new_allowlist_tests_are_hermetic() -> None:
+    """The parity check reads text from the repo tree: no network, no `islo`, no `curl`."""
+    assert list(inspect.signature(allow_hosts_from_shell).parameters) == ["text", "source"]
+    source = inspect.getsource(allow_hosts_from_shell)
+    for forbidden in ("subprocess", "urllib", "socket", "islo ", "curl"):
+        assert forbidden not in source
 
 
 def test_missing_environment() -> None:

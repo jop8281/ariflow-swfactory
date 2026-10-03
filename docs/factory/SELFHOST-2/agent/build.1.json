@@ -1,0 +1,93 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 70643,
+  "duration_ms": 70899,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 2042,
+  "is_error": false,
+  "iteration": 1,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 28987,
+      "cacheReadInputTokens": 194244,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 0.41117575,
+      "inputTokens": 662,
+      "maxOutputTokens": 64000,
+      "outputTokens": 5183,
+      "provider": "firstParty",
+      "thinkingTokens": 1586,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 13,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "7fe9a3e5-8df7-41b5-b6a3-09902904df36",
+  "stage": "build",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "files_changed": [
+      "src/swfactory/doctor.py",
+      "deploy/islo/bootstrap.sh"
+    ],
+    "summary": "Implemented the `allowlist` node of SELFHOST-2: appended the astral.sh uv installer's two redirect targets, `releases.astral.sh` and `release-assets.githubusercontent.com`, to `swfactory.doctor.GATEWAY_ALLOW_HOSTS` (now 8 entries; the six existing hosts are byte-identical and keep their order/position) and to the `ALLOW_HOSTS` bash array in `deploy/islo/bootstrap.sh`, in the same order. The bootstrap array stays a single unquoted, comment-free line so the hermetic text parse (`ALLOW_HOSTS=(` .. next `)`, split on whitespace) remains exact; the two new explanatory comment lines above it avoid the bare `ALLOW_HOSTS` token so a first-match parse still lands on the array line, and the existing idempotent `add-rule` loop and the `note` summary pick the hosts up unchanged. `gateway_fix` required no edit: it interpolates `' '.join(GATEWAY_ALLOW_HOSTS)`, so it now names both new hosts while keeping its `islo gateway create --name <profile> --default-action deny --internet-access true` prefix and `add-rule --host <host> --action allow` substring (R4-R6). Verification caveat, stated plainly: this environment exposed no shell tool, so I could not run `uv run --group dev pytest` \u2014 no test output is claimed. I verified by inspection instead: the only pre-existing consumer of the tuple is `tests/test_doctor.py:172`, which iterates it dynamically rather than pinning six entries, and `_check_gateway` validates only `default_action == \"deny\"` and `internet_enabled is True` without enumerating rules, so no check outcome, exit code, or `11 checks` table shape changes. The parity, prose, and loud-parse-failure tests belong to the sibling `tests` node and were left to it; no protected path was touched (R14)."
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 42,
+  "total_cost_usd": 0.41117575,
+  "ttft_ms": 2204,
+  "ttft_stream_ms": 2041,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 28987
+    },
+    "cache_creation_input_tokens": 28987,
+    "cache_read_input_tokens": 194244,
+    "inference_geo": "",
+    "input_tokens": 662,
+    "iterations": [],
+    "output_tokens": 5183,
+    "output_tokens_details": {
+      "thinking_tokens": 1586
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "0bba4087-91b7-4082-ad9d-03748f5f07f4"
+}

@@ -10,9 +10,8 @@ name: promotion-policy
 #          mandatory set. This one runs everywhere and blocks a pull request that edits the policy
 #          or the jobs out of agreement with each other.
 #   diff   the live settings against the same file. Reading branch protection needs administrative
-#          scope, which `github.token` does not have, so this leg runs only where the maintainer
-#          token exists and says so loudly when it does not -- an unverified run must never read
-#          as a verified one.
+#          scope, which `github.token` does not have. A missing maintainer token fails this job.
+#          A green run means `diff` executed; an unverified run must not be a success.
 on:
   push: { branches: [main] }
   pull_request:
@@ -39,15 +38,16 @@ jobs:
         run: uv run python scripts/promotion_policy.py audit
 
       - name: The policy agrees with the live repository settings
-        # A missing token is reported, never assumed benign: the step below prints why the boundary
-        # could not be verified instead of leaving a green tick that means nothing.
+        # A missing token used to print a warning and exit 0. GitHub still recorded success, and
+        # run 36297538879 was later cited as a live diff even though its log said the token was
+        # absent. Fail the step so a green job means the diff command actually ran.
         env:
           GH_TOKEN: ${{ secrets.SWF_POLICY_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::warning::SWF_POLICY_ADMIN_TOKEN is not set; live branch protection was NOT verified."
-            echo "::warning::Reading protection requires admin scope. See docs/promotion-policy.md."
-            exit 0
+            echo "::error::SWF_POLICY_ADMIN_TOKEN is not set; live branch protection was NOT verified."
+            echo "::error::Reading protection requires admin scope. See docs/promotion-policy.md."
+            exit 1
           fi
           uv run python scripts/promotion_policy.py diff

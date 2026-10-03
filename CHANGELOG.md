@@ -6,6 +6,31 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Reject skipped or unreachable live-policy comparisons and keep webhook response bodies intact
+  when diagnostic logging fails.
+- Make unavailable-provider coverage independent of installed upstream backends, and describe
+  their introduction PRs without assuming those PRs remain open.
+- Keep local sandbox credentials scrubbed by disabling host shell startup files and removing
+  shell startup environment overrides. Record webhook routing diagnostics before returning the
+  response body so a received acknowledgment has a corresponding log entry.
+- Fail the promotion-policy live diff when `SWF_POLICY_ADMIN_TOKEN` is absent. A missing token used
+  to exit 0 after a warning, so a green job could be cited as proof that branch protection had been
+  compared when the log said it was not verified. The offline audit also rejects a live-diff step
+  that masks `diff` with `continue-on-error`, `|| true`, or a token test that skips the command.
+- Include the calculator target in installed packages by limiting the Rust output ignore rule to
+  the repository root. Run the built wheel's demo outside the checkout before retaining release
+  artifacts, so source-tree files cannot hide missing package assets.
+- Run islo cell commands with `--output json`: islo 0.53.1 prints its status lines on the command's
+  stdout in plain mode, which corrupted every parsed result after the first command into a cell.
+- Let islo and toolset (sbx) cells, which clone the whole repository, run subdirectory targets end to
+  end: the `Plan.work` scope check compares target-relative paths, and `.gitignore` ignores only the
+  root `target/`, so deliver can add evidence under `demo/target/`.
+- Keep the exact review-diff and failure-observation archives in host-owned control state. They were
+  run artifacts, so deliver mirrored them into the cell and refused the run; a secret-shaped
+  observation was copied into the cell the same way.
+- Allow `releases.astral.sh` and `release-assets.githubusercontent.com` in the documented `swfactory`
+  gateway profile: `islo.yaml`'s uv installer redirects there, so a cell built from the old allow-list
+  failed its setup script with a 403 and never had `uv`.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.

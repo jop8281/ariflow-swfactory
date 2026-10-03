@@ -1,0 +1,133 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 209695,
+  "duration_ms": 210023,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 1810,
+  "is_error": false,
+  "iteration": 2,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 59087,
+      "cacheReadInputTokens": 517876,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 0.96437675,
+      "inputTokens": 814,
+      "maxOutputTokens": 64000,
+      "outputTokens": 13283,
+      "provider": "firstParty",
+      "thinkingTokens": 8648,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 22,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "bc607354-9336-43b3-a55c-45f076782cad",
+  "stage": "review",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "findings": [
+      {
+        "detail": "plan.md declares six files (tests/test_doctor.py, src/swfactory/doctor.py, deploy/islo/bootstrap.sh, deploy/islo/deploy.sh, docs/islo.md, docs/selfhost.md) yet the diff also rewrites `Factory._member_cell` and adds `_own_live_activation` in src/swfactory/backend/service.py \u2014 control-plane Cell-ownership logic wholly unrelated to the allow-list, apparently carried in from this branch's earlier `fix:` commits (d9629d5/b24b462). Either the change belongs to a separate PR or plan.md must declare it; a self-hosting PR whose stated scope is doctor+deploy+docs+tests should not silently alter Cell activation/adoption semantics.",
+        "file": "src/swfactory/backend/service.py",
+        "line": 866,
+        "severity": "major",
+        "title": "Diff touches a file plan.md does not list"
+      },
+      {
+        "detail": "The `except CellBusy` path that now adopts a live Cell activated by another attempt of the same order adds new behaviour, but the diff contains no test for it; the only coverage in the tree is the threaded four-replica race in tests/test_dispatch_strand.py:380, which reaches this branch only when the interleaving happens to lose an activation. A deterministic test that drives `cell_store.activate` to raise `CellBusy` with a same-owner live Cell (and a foreign-owner one, asserting the 409 survives) should pin both halves of the ownership rule.",
+        "file": "src/swfactory/backend/service.py",
+        "line": 877,
+        "severity": "minor",
+        "title": "New CellBusy-adoption branch lands with no test in the diff"
+      },
+      {
+        "detail": "plan.md specifies asserting that the `--init minimal` uncertainty wording is gone, but the test asserts `\"unsettled\" not in text` for all of docs/selfhost.md, so any future unrelated use of an ordinary English word in that evolving document fails a doctor test. Scope the assertion to the retired claim (e.g. `\"unsettled whether\"` together with `\"--init minimal\"`), keeping the check coarse as the plan's risk section intended.",
+        "file": "tests/test_doctor.py",
+        "line": 293,
+        "severity": "minor",
+        "title": "Doc assertion bans the bare word \"unsettled\" across the whole file"
+      },
+      {
+        "detail": "The test only inspects `allow_hosts_from_shell`'s own signature and source text for the strings `subprocess`/`urllib`/`socket`/`islo `/`curl`, so it passes by construction and would not detect a non-hermetic call in any of the sibling tests it claims to cover (R15). Either drop it as ceremony or make it meaningful \u2014 e.g. assert over the source of the whole allow-list test section, or monkeypatch `subprocess.run`/`socket.socket` to raise for the duration of the parity test.",
+        "file": "tests/test_doctor.py",
+        "line": 300,
+        "severity": "minor",
+        "title": "test_new_allowlist_tests_are_hermetic asserts almost nothing"
+      },
+      {
+        "detail": "deploy/islo/deploy.sh:12-16 now says the `swfactory-orchestrator` profile needs releases.astral.sh and release-assets.githubusercontent.com or its setup script 403s, while this file's header \u2014 for the same profile, whose setup_script at line 25 runs that very `astral.sh` installer \u2014 still lists only the six old hosts, as does the Orchestrator egress cell in docs/islo.md:9. spec.md open question 2 knowingly left both out of scope, so this is the declared residual, but an operator provisioning from islo.yaml's header will reproduce the 403 this PR exists to prevent; a one-line follow-up should align them.",
+        "file": "deploy/islo/orchestrator/islo.yaml",
+        "line": 12,
+        "severity": "minor",
+        "title": "Orchestrator profile is now described with two different allow-lists"
+      },
+      {
+        "detail": "`text.find(\"ALLOW_HOSTS=(\")` matches any suffixed name, so an earlier `EXTRA_ALLOW_HOSTS=(...)` or a commented example line in bootstrap.sh would hijack the parity check with a non-empty parse that R13's empty-parse guard cannot catch. Anchoring the search to line start (e.g. scan `splitlines()` for a line beginning with the marker) would make the exact parse rule from spec.md open question 3 enforceable.",
+        "file": "tests/test_doctor.py",
+        "line": 220,
+        "severity": "nit",
+        "title": "ALLOW_HOSTS marker is matched as a substring"
+      }
+    ],
+    "verdict": "approve"
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 55,
+  "total_cost_usd": 0.96437675,
+  "ttft_ms": 19245,
+  "ttft_stream_ms": 1810,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 59087
+    },
+    "cache_creation_input_tokens": 59087,
+    "cache_read_input_tokens": 517876,
+    "inference_geo": "",
+    "input_tokens": 814,
+    "iterations": [],
+    "output_tokens": 13283,
+    "output_tokens_details": {
+      "thinking_tokens": 8648
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "5ec7e946-fce6-4329-b2d0-843156e91c2c"
+}

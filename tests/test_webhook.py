@@ -326,6 +326,42 @@ def test_server_routes_labeled_issue_to_airflow(served) -> None:
     assert not any(SECRET in line for line in lines)
 
 
+@pytest.mark.parametrize("log_error", [None, OSError("closed log"), RuntimeError("broken logger")])
+def test_reply_records_diagnostic_before_acknowledgment_body(log_error) -> None:
+    events: list[str] = []
+
+    def log(line):
+        events.append("diagnostic")
+        if log_error is not None:
+            raise log_error
+
+    class ResponseBody(io.BytesIO):
+        def write(self, body: bytes) -> int:
+            events.append("body")
+            return super().write(body)
+
+    server = webhook.make_server(
+        0,
+        airflow_url=AIRFLOW,
+        token_provider=lambda: "T",
+        secret=SECRET,
+        host="127.0.0.1",
+        log=log,
+    )
+    try:
+        handler = server.RequestHandlerClass.__new__(server.RequestHandlerClass)
+        handler.command = "POST"
+        handler.send_response = lambda status: None
+        handler.send_header = lambda key, value: None
+        handler.end_headers = lambda: None
+        handler.wfile = ResponseBody()
+        handler._reply(202, {"dag_id": "hotfix"}, "abc")
+        assert events == ["diagnostic", "body"]
+        assert json.loads(handler.wfile.getvalue()) == {"dag_id": "hotfix"}
+    finally:
+        server.server_close()
+
+
 def test_server_ignores_unrouted_events(served) -> None:
     port, opener, _ = served
     body = json.dumps({"zen": "Design for failure."}).encode()

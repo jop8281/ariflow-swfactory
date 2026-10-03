@@ -256,7 +256,12 @@ def _settle(ctx: stages.Ctx, progress: dict[str, Any], plan: Plan, after: str) -
     }
     if attempt["kind"] == "node":
         node = next(row for row in plan.work if row.id == attempt["id"])
-        changed_text = stages._sh(ctx, f"git diff --name-only {shlex.quote(before)}..{shlex.quote(after)} -- .")
+        # `--relative`: without it git reports paths from the REPOSITORY root even with `-- .`. A cell
+        # that is a full clone (islo, toolset/sbx) holds the target in a subdirectory, so every path
+        # would carry `<dir>/` and never match the node's target-relative declaration.
+        changed_text = stages._sh(
+            ctx, f"git diff --name-only --relative {shlex.quote(before)}..{shlex.quote(after)} -- ."
+        )
         changed = tuple(sorted(line.strip() for line in changed_text.splitlines() if line.strip()))
         unexpected = sorted(set(changed) - set(node.files))
         if unexpected:

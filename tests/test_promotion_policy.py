@@ -403,7 +403,7 @@ def _audit_with_ci_rewrite(tmp_path: Path, rewrite) -> list[str]:
     workflows.mkdir(parents=True)
     ci_text = (REPO / ".github/workflows/ci.yml").read_text()
     (workflows / "ci.yml").write_text(rewrite(ci_text))
-    for name in ("control-plane-gate.yml", "release.yml"):
+    for name in ("control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
         (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
     return promotion_policy.audit_policy(POLICY, tmp_path)
 
@@ -465,10 +465,130 @@ def test_the_drift_check_workflow_exists_and_audits_the_policy() -> None:
     text = (REPO / ".github/workflows/promotion-policy.yml").read_text()
     assert "scripts/promotion_policy.py audit" in text
     assert "scripts/promotion_policy.py diff" in text
+    live = _workflow("promotion-policy.yml")["jobs"]["policy"]["steps"][-1]["run"]
+    assert "::error::" in live
+    assert "exit 1" in live
+    assert "exit 0" not in live
+
+
+def test_live_diff_audit_rejects_a_green_unverified_token_gap(tmp_path: Path) -> None:
+    """Run 36297538879 exited 0 when the admin token was missing and was later cited as a live diff."""
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+        (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
+    drift = workflows / "promotion-policy.yml"
+    drift.write_text(drift.read_text().replace("exit 1", "exit 0", 1))
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("exits 0" in problem for problem in problems)
+
+
+def _promotion_repo(tmp_path: Path) -> Path:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+        (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
+    return workflows / "promotion-policy.yml"
+
+
+def test_live_diff_audit_rejects_continue_on_error(tmp_path: Path) -> None:
+    drift = _promotion_repo(tmp_path)
+    original = drift.read_text()
+    rewritten = original.replace(
+        "      - name: The policy agrees with the live repository settings\n",
+        "      - name: The policy agrees with the live repository settings\n        continue-on-error: true\n",
+        1,
+    )
+    assert rewritten != original
+    drift.write_text(rewritten)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("continue-on-error" in problem for problem in problems)
+
+
+def test_live_diff_audit_rejects_a_masked_diff_status(tmp_path: Path) -> None:
+    drift = _promotion_repo(tmp_path)
+    original = drift.read_text()
+    rewritten = original.replace(
+        "uv run python scripts/promotion_policy.py diff",
+        "uv run python scripts/promotion_policy.py diff || true",
+        1,
+    )
+    assert rewritten != original
+    drift.write_text(rewritten)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("suppresses the live diff status" in problem for problem in problems)
+
+
+def test_live_diff_audit_rejects_a_positive_token_test_that_skips_the_diff(tmp_path: Path) -> None:
+    drift = _promotion_repo(tmp_path)
+    original = drift.read_text()
+    rewritten = original.replace('if [ -z "${GH_TOKEN:-}" ]; then', 'if [ -n "${GH_TOKEN:-}" ]; then', 1)
+    rewritten = rewritten.replace("            exit 1\n", "", 1)
+    assert rewritten != original
+    drift.write_text(rewritten)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("without a live diff" in problem for problem in problems)
+
+
+def test_live_diff_audit_rejects_skipping_the_diff_when_the_token_is_missing(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    for name in ("ci.yml", "control-plane-gate.yml", "release.yml", "promotion-policy.yml"):
+        (workflows / name).write_text((REPO / ".github/workflows" / name).read_text())
+    drift = workflows / "promotion-policy.yml"
+    original = drift.read_text()
+    skipped = original.replace(
+        'echo "::error::Reading protection requires admin scope. See docs/promotion-policy.md."\n'
+        "            exit 1\n"
+        "          fi\n"
+        "          uv run python scripts/promotion_policy.py diff",
+        'echo "::error::Reading protection requires admin scope. See docs/promotion-policy.md."\n'
+        "          else\n"
+        "            uv run python scripts/promotion_policy.py diff\n"
+        "          fi",
+        1,
+    )
+    assert skipped != original
+    drift.write_text(skipped)
+
+    problems = promotion_policy.audit_policy(POLICY, tmp_path)
+
+    assert any("without a live diff" in problem for problem in problems)
 
 
 def test_the_policy_audit_agrees_with_the_checked_in_workflows() -> None:
     assert promotion_policy.audit_policy(POLICY, REPO) == []
+
+
+@pytest.mark.parametrize("scope", ["job", "step"])
+@pytest.mark.parametrize("condition", [False, "${{ false }}", "github.event_name == 'push'"])
+def test_live_diff_audit_rejects_skipping_conditions(tmp_path: Path, scope, condition) -> None:
+    drift = _promotion_repo(tmp_path)
+    document = yaml.safe_load(drift.read_text())
+    job = document["jobs"]["policy"]
+    target = job if scope == "job" else job["steps"][-1]
+    target["if"] = condition
+    drift.write_text(yaml.safe_dump(document))
+
+    assert any("condition" in problem for problem in promotion_policy.audit_policy(POLICY, tmp_path))
+
+
+@pytest.mark.parametrize("wrapper", ["if false; then\n{}\nfi", ": <<'SKIP'\n{}\nSKIP"])
+def test_live_diff_audit_rejects_unreachable_commands(tmp_path: Path, wrapper) -> None:
+    drift = _promotion_repo(tmp_path)
+    command = "uv run python scripts/promotion_policy.py diff"
+    wrapped = wrapper.format(command).replace("\n", "\n          ")
+    drift.write_text(drift.read_text().replace(command, wrapped, 1))
+
+    assert any("reviewed command structure" in problem for problem in promotion_policy.audit_policy(POLICY, tmp_path))
 
 
 def test_superseded_live_gate_does_not_start_more_long_harnesses() -> None:

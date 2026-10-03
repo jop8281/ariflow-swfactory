@@ -174,6 +174,8 @@ SCRUB_PREFIXES = (
 )
 SCRUB_EXACT = frozenset(
     {
+        "BASH_ENV",
+        "ENV",
         "DATABASE_URL",
         "DOCKER_AUTH_CONFIG",
         "HF_TOKEN",
@@ -349,7 +351,7 @@ def _credential_env(pass_env: Sequence[str]) -> dict[str, str]:
 
 
 class LocalSandbox:
-    """A directory on the host. Commands run through ``bash -lc`` with a scrubbed environment."""
+    """A directory on the host. Commands run without shell startup files in a scrubbed environment."""
 
     def __init__(self, workdir: Path) -> None:
         self.root = Path(workdir).resolve()
@@ -373,9 +375,9 @@ class LocalSandbox:
             raise StageError("sandbox", f"git init failed in {self.root}: {res.stderr.strip()}")
 
     def run(self, cmd: str, *, cwd: str | None = None, timeout_s: int = 1800) -> RunResult:
-        """Run ``cmd`` via ``bash -lc`` inside ``cwd`` (default ``workdir``)."""
+        """Run ``cmd`` without host login profiles restoring credentials after the scrub."""
         return _run_subprocess(
-            ["bash", "-lc", cmd],
+            ["bash", "--noprofile", "--norc", "-c", cmd],
             cwd=self._abs(cwd) if cwd else self.root,
             env=scrub_env(os.environ),
             timeout_s=timeout_s,
@@ -890,7 +892,11 @@ class IsloSandbox:
             return [*argv, "--output", "plain", "--", "true"]
         run_cwd = self._cwd(cwd) if cwd else self.workdir
         script = f"cd {shlex.quote(run_cwd)} && {cmd}"
-        return ["islo", "use", self.name, "--output", "plain", "--", "bash", "-lc", script]
+        # `--output json`, not `plain`: islo prints its own status lines ("→ Reconnecting to existing
+        # sandbox ...") with println!, i.e. onto the COMMAND's stdout, in every mode but json (islo
+        # 0.53.1). Every stdout the stages parse -- `git rev-parse HEAD` first -- would carry it.
+        # json mode passes the command's stdout and exit code through untouched.
+        return ["islo", "use", self.name, "--output", "json", "--", "bash", "-lc", script]
 
     def ensure(self) -> None:
         """Create the sandbox if missing. Runs from ``factory_root`` so ``./islo.yaml`` applies."""
@@ -1006,8 +1012,8 @@ def _factory_root() -> Path:
 # ---------------------------------------------------------------- upstream toolset backends
 
 # Airflow's own sandbox abstraction (provider apache-airflow-providers-common-ai). `sbx` ships in
-# the released provider; the other three are pending upstream pull requests, and the module/class
-# names below are the ones those PRs actually add — checked against the diffs, not guessed.
+# the released provider; other backends depend on the installed provider version. Their
+# module/class names and upstream introduction PRs were checked against the diffs, not guessed.
 TOOLSET_BACKENDS = {
     "sbx": ("airflow.providers.common.ai.sandbox.sbx", "SbxSandboxBackend", None),
     "islo": ("airflow.providers.common.ai.sandbox.islo", "IsloSandboxBackend", 71672),
@@ -1059,8 +1065,8 @@ def load_toolset_backend(name: str, **kwargs: object):
         module = importlib.import_module(module_path)
     except ImportError as e:
         where = (
-            f"it is still open upstream as apache/airflow#{pr} — install the provider from that "
-            "branch (see scripts/airflow_main.sh)"
+            f"it was introduced in apache/airflow#{pr} — install a provider version that includes "
+            "it (see scripts/airflow_main.sh)"
             if pr
             else "install apache-airflow-providers-common-ai"
         )

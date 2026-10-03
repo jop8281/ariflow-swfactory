@@ -615,13 +615,15 @@ def make_handler(
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
+            summary = doc.get("dag_id") or doc.get("error") or doc.get("event") or ""
+            safe_delivery = re.sub(r"[^A-Za-z0-9_-]", "?", delivery)[:128]
+            # Diagnostics are best effort; a broken logger must not truncate the response.
+            with contextlib.suppress(Exception):
+                emit(f"webhook {self.command} -> {status} delivery={safe_delivery} {summary!r}")
             # An acknowledged-in-storage delivery survives a disconnected sender: the receipt is
             # already durable, so failing to write the response body changes nothing that matters.
             with contextlib.suppress(OSError):
                 self.wfile.write(data)
-            summary = doc.get("dag_id") or doc.get("error") or doc.get("event") or ""
-            safe_delivery = re.sub(r"[^A-Za-z0-9_-]", "?", delivery)[:128]
-            emit(f"webhook {self.command} -> {status} delivery={safe_delivery} {summary!r}")
 
     return Handler
 

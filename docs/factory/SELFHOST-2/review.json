@@ -1,0 +1,56 @@
+{
+  "verdict": "approve",
+  "findings": [
+    {
+      "severity": "major",
+      "file": "src/swfactory/backend/service.py",
+      "line": 866,
+      "title": "Diff touches a file plan.md does not list",
+      "detail": "plan.md declares six files (tests/test_doctor.py, src/swfactory/doctor.py, deploy/islo/bootstrap.sh, deploy/islo/deploy.sh, docs/islo.md, docs/selfhost.md) yet the diff also rewrites `Factory._member_cell` and adds `_own_live_activation` in src/swfactory/backend/service.py \u2014 control-plane Cell-ownership logic wholly unrelated to the allow-list, apparently carried in from this branch's earlier `fix:` commits (d9629d5/b24b462). Either the change belongs to a separate PR or plan.md must declare it; a self-hosting PR whose stated scope is doctor+deploy+docs+tests should not silently alter Cell activation/adoption semantics."
+    },
+    {
+      "severity": "minor",
+      "file": "src/swfactory/backend/service.py",
+      "line": 877,
+      "title": "New CellBusy-adoption branch lands with no test in the diff",
+      "detail": "The `except CellBusy` path that now adopts a live Cell activated by another attempt of the same order adds new behaviour, but the diff contains no test for it; the only coverage in the tree is the threaded four-replica race in tests/test_dispatch_strand.py:380, which reaches this branch only when the interleaving happens to lose an activation. A deterministic test that drives `cell_store.activate` to raise `CellBusy` with a same-owner live Cell (and a foreign-owner one, asserting the 409 survives) should pin both halves of the ownership rule."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_doctor.py",
+      "line": 293,
+      "title": "Doc assertion bans the bare word \"unsettled\" across the whole file",
+      "detail": "plan.md specifies asserting that the `--init minimal` uncertainty wording is gone, but the test asserts `\"unsettled\" not in text` for all of docs/selfhost.md, so any future unrelated use of an ordinary English word in that evolving document fails a doctor test. Scope the assertion to the retired claim (e.g. `\"unsettled whether\"` together with `\"--init minimal\"`), keeping the check coarse as the plan's risk section intended."
+    },
+    {
+      "severity": "minor",
+      "file": "tests/test_doctor.py",
+      "line": 300,
+      "title": "test_new_allowlist_tests_are_hermetic asserts almost nothing",
+      "detail": "The test only inspects `allow_hosts_from_shell`'s own signature and source text for the strings `subprocess`/`urllib`/`socket`/`islo `/`curl`, so it passes by construction and would not detect a non-hermetic call in any of the sibling tests it claims to cover (R15). Either drop it as ceremony or make it meaningful \u2014 e.g. assert over the source of the whole allow-list test section, or monkeypatch `subprocess.run`/`socket.socket` to raise for the duration of the parity test."
+    },
+    {
+      "severity": "minor",
+      "file": "deploy/islo/orchestrator/islo.yaml",
+      "line": 12,
+      "title": "Orchestrator profile is now described with two different allow-lists",
+      "detail": "deploy/islo/deploy.sh:12-16 now says the `swfactory-orchestrator` profile needs releases.astral.sh and release-assets.githubusercontent.com or its setup script 403s, while this file's header \u2014 for the same profile, whose setup_script at line 25 runs that very `astral.sh` installer \u2014 still lists only the six old hosts, as does the Orchestrator egress cell in docs/islo.md:9. spec.md open question 2 knowingly left both out of scope, so this is the declared residual, but an operator provisioning from islo.yaml's header will reproduce the 403 this PR exists to prevent; a one-line follow-up should align them."
+    },
+    {
+      "severity": "nit",
+      "file": "tests/test_doctor.py",
+      "line": 220,
+      "title": "ALLOW_HOSTS marker is matched as a substring",
+      "detail": "`text.find(\"ALLOW_HOSTS=(\")` matches any suffixed name, so an earlier `EXTRA_ALLOW_HOSTS=(...)` or a commented example line in bootstrap.sh would hijack the parity check with a non-empty parse that R13's empty-parse guard cannot catch. Anchoring the search to line start (e.g. scan `splitlines()` for a line beginning with the marker) would make the exact parse rule from spec.md open question 3 enforceable."
+    },
+    {
+      "severity": "major",
+      "file": "src/swfactory/backend/service.py",
+      "line": null,
+      "title": "Plan fidelity: file not listed in plan.md",
+      "detail": "`src/swfactory/backend/service.py` was changed but plan.md does not list it. Add it to the plan or revert the change."
+    }
+  ],
+  "dropped_nits": 0,
+  "fixes": 1
+}

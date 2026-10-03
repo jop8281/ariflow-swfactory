@@ -1,0 +1,92 @@
+{
+  "api_error_status": null,
+  "duration_api_ms": 547755,
+  "duration_ms": 548725,
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "fast_mode_state": "off",
+  "first_content_frame_ms": 1587,
+  "is_error": false,
+  "iteration": 4,
+  "modelUsage": {
+    "databricks-claude-opus-5": {
+      "cacheCreationInputTokens": 112178,
+      "cacheReadInputTokens": 2407509,
+      "canonicalModel": "claude-opus-5",
+      "contextWindow": 200000,
+      "costBasis": "list",
+      "costUSD": 2.874882,
+      "inputTokens": 1883,
+      "maxOutputTokens": 64000,
+      "outputTokens": 38424,
+      "provider": "firstParty",
+      "thinkingTokens": 30991,
+      "webSearchRequests": 0
+    }
+  },
+  "num_turns": 39,
+  "permission_denials": [],
+  "queued_turn_count": 0,
+  "result_index": 0,
+  "session_id": "74bc7bd9-51ae-4917-8787-7623adbd1aac",
+  "stage": "fix",
+  "stop_reason": "tool_use",
+  "structured_output": {
+    "files_changed": [
+      "src/swfactory/backend/service.py"
+    ],
+    "summary": "Diagnosed the failing test (tests/test_dispatch_strand.py::test_two_replicas_pumping_the_same_outbox_dispatch_once, \"0 runs from 4 replicas\") as a race in the dispatch outbox rather than anything from the SELFHOST-2 allowlist change (those tests pass). With a 0.0 dispatch lease all four replicas claim the same intent, but only the last claimant holds the valid lease token; all four then race on cell_store.activate in Factory._member_cell. One attempt wins the activation and the rest got CellBusy, which the code turned straight into Refused(409). When the activation winner is not the lease holder, the winner dies on record_member_epoch (DispatchLeaseLost) and the lease holder dies on CellBusy, so nothing POSTs and no Airflow run is created. Fix: on CellBusy, _member_cell now re-reads the Cell and adopts it when the Cell's own history names this work order as the actor that activated the current epoch (new helper _own_live_activation), the same evidence the existing crash/unrecorded-activation path uses; adoption is limited to members with no recorded epoch, and a Cell held live by another harness (different owner string backend:{actor}:{work_id}) still raises Refused(409). The attempt that owns the intent therefore always gets past activation, so exactly one POST reaches Airflow and the deterministic run id keeps it to one run. Caveat: this environment provided no shell/execution tool, so I could not run `uv run --group dev pytest` to confirm; the change was verified by static review against the neighbouring constraints (superseded-attempt test, the sibling-harness compensation test, and the harness-scale 'busy' fixtures, which drive CellStore.activate directly and are unaffected). Only src/swfactory/backend/service.py was modified (not a protected path); no test files were touched."
+  },
+  "subagent_stats": {
+    "by_type": {},
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "system": 0,
+      "user": 0
+    },
+    "max_depth": 0,
+    "refused": {
+      "budget": 0,
+      "concurrency_limit": 0,
+      "depth_limit": 0
+    },
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "spawned": 0,
+    "spawned_by_subagents": 0,
+    "started_in_background": 0
+  },
+  "subtype": "success",
+  "terminal_reason": "completed",
+  "time_to_request_ms": 61,
+  "total_cost_usd": 2.874882,
+  "ttft_ms": 3451,
+  "ttft_stream_ms": 1587,
+  "type": "result",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 112178
+    },
+    "cache_creation_input_tokens": 112178,
+    "cache_read_input_tokens": 2407509,
+    "inference_geo": "",
+    "input_tokens": 1883,
+    "iterations": [],
+    "output_tokens": 38424,
+    "output_tokens_details": {
+      "thinking_tokens": 30991
+    },
+    "server_tool_use": {
+      "web_fetch_requests": 0,
+      "web_search_requests": 0
+    },
+    "service_tier": "standard",
+    "speed": "standard"
+  },
+  "uuid": "92668b23-85d4-41d0-ad11-f6e5f4b3e188"
+}
