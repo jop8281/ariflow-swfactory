@@ -22,7 +22,10 @@ why compose mounts the repo at `${PWD}` and every command runs from the **repo r
 ## Run it
 
 ```bash
-# 0. from the REPO ROOT
+# 0. from the REPO ROOT; keep this token in the operator shell and stack
+export SWF_BACKEND_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+#    Reuse it while the stack is running; do not regenerate it in a second operator shell.
+docker compose -f deploy/docker/compose.yml config --quiet
 docker build -t swfactory-sandbox:local -f deploy/docker/sandbox.Dockerfile .
 #    Linux: add --build-arg UID=$(id -u) --build-arg GID=$(id -g) so the agent's files are yours
 #    (or: UID=$(id -u) GID=$(id -g) docker compose -f deploy/docker/compose.yml build sandbox-image)
@@ -38,14 +41,20 @@ docker compose -f deploy/docker/compose.yml up            # add -d to detach
 docker compose -f deploy/docker/compose.yml exec airflow \
   cat /opt/airflow_home/simple_auth_manager_passwords.json.generated
 
-# 3. trigger a line: dag_id = the blueprint's name (`factory` for blueprints/default.toml, `hotfix`
-#    for hotfix.toml) in the UI, through the API, or by posting a GitHub issue event to
-#    http://localhost:8081/webhooks/github
+# 3. install the Rust console (docs/swf.md), then connect to managed intake
+swf context add docker --backend-url http://localhost:8082 \
+  --airflow-url http://localhost:8080 --repo your-org/your-product --use
+swf doctor
+swf submit --blueprint your-product --issue 42
+#    Install the matching blueprint first (README.md: real-repository setup).
+#    The backend admits the work, binds a Cell, and creates its Airflow run.
+#    Use a real issue from the configured product repository.
 
-# 4. approve the gates: Airflow UI (Required Actions on job.approve_intent / job.approve_plan) or
-uv run swfactory approve <dag_run_id> intent --airflow-url http://localhost:8080 --token <JWT>
-uv run swfactory approve <dag_run_id> plan   --airflow-url http://localhost:8080 --token <JWT>
-#    (JWT: POST http://localhost:8080/auth/token with {"username":"admin","password":"<pw>"})
+# 4. inspect and answer human gates with the console
+swf gates list
+swf gates review '<gate-id>'
+swf gates approve '<gate-id>' --expect '<evidence-revision>'
+#    Use the gate ID and evidence revision printed by list/review.
 ```
 
 One-shot, no Airflow — the CLI on the host with sandbox containers (needs the docker CLI + daemon):
