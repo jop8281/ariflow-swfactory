@@ -150,3 +150,24 @@ def policy_approval(ctx, gate: str) -> Approval:
         budget_usd=ctx.cfg.max_budget_usd,
     )
     return Approval.model_validate(result)
+
+
+def enforce_runtime_policy(cfg, blueprint, binding: dict | None) -> None:
+    """Refuse widened worker settings before creating a sandbox or spending on the first stage."""
+    if not any(gate.mode == "policy" for gate in blueprint.gates):
+        return
+    from swfactory.security_contract import CanonicalPolicy
+
+    policy = load_policy()
+    if blueprint.name != LINE or not binding or not binding.get("managed") or cfg.scm != "github":
+        raise StageError("policy", "autonomous work requires a backend-managed line")
+    if not policy.enabled or cfg.repo != policy.repository or cfg.target_dir or cfg.base_branch != policy.base_branch:
+        raise StageError("policy", "runtime target is outside autonomous policy")
+    policy.check_budget(0, cfg.max_budget_usd)
+    if not 0 < cfg.max_budget_usd_per_stage <= cfg.max_budget_usd:
+        raise StageError("policy", "stage budget exceeds autonomous job authority")
+    expected = CanonicalPolicy.for_factory_job(
+        LINE, {"repo": cfg.repo, "dir": cfg.target_dir, "base_branch": cfg.base_branch}
+    ).digest()
+    if binding.get("policy_digest") != expected:
+        raise StageError("policy", "autonomous policy moved before execution; a new epoch is required")

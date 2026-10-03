@@ -509,3 +509,66 @@ def test_approved_patch_publishes_then_merges_through_managed_mutations(approved
     assert PublishingRemote.writes == [(1, SHA)]
     assert backend.control.operations.get("publish-integrated")["state"] == "committed"
     assert backend.control.operations.get("merge-integrated")["state"] == "committed"
+
+
+@pytest.mark.parametrize("mutation", ["job-budget", "stage-budget", "target", "revision", "unmanaged"])
+def test_widened_runtime_settings_are_refused_before_first_stage(mutation):
+    from types import SimpleNamespace
+
+    from swfactory.autonomy import enforce_runtime_policy
+    from swfactory.blueprint import load
+
+    cfg = SimpleNamespace(
+        repo=REPO, target_dir="", base_branch="main", scm="github", max_budget_usd=8, max_budget_usd_per_stage=2
+    )
+    binding = {
+        "managed": True,
+        "policy_digest": CanonicalPolicy.for_factory_job(
+            "autonomous", {"repo": REPO, "dir": "", "base_branch": "main"}
+        ).digest(),
+    }
+    enforce_runtime_policy(cfg, load("autonomous"), binding)
+    if mutation == "job-budget":
+        cfg.max_budget_usd = 40
+    elif mutation == "stage-budget":
+        cfg.max_budget_usd_per_stage = 40
+    elif mutation == "target":
+        cfg.target_dir = "other-product"
+    elif mutation == "revision":
+        binding["policy_digest"] = "policy:" + "f" * 64
+    else:
+        binding["managed"] = False
+    with pytest.raises(StageError):
+        enforce_runtime_policy(cfg, load("autonomous"), binding)
+
+
+def test_removed_intake_label_blocks_before_sandbox_or_agent_creation(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from swfactory import runtime
+    from swfactory.blueprint import load
+    from swfactory.config import Config
+
+    cfg = Config(
+        blueprint="autonomous",
+        issue="101",
+        target_dir="",
+        run_id="removed-label",
+        agent="claude",
+        sandbox="islo",
+        scm="github",
+    )
+    binding = {
+        "managed": True,
+        "cell_id": "cell_" + "a" * 24,
+        "epoch": 1,
+        "policy_digest": CanonicalPolicy.for_factory_job(
+            "autonomous", {"repo": REPO, "dir": "", "base_branch": "main"}
+        ).digest(),
+    }
+    scm = SimpleNamespace(fetch_issue=lambda ref: Issue(id=ref, title="Fix", body="Acceptance"))
+    monkeypatch.setattr(runtime, "make_sandbox", lambda *args, **kwargs: pytest.fail("must not create compute"))
+    with pytest.raises(StageError, match="required_labels_missing"):
+        runtime.ctx_for(
+            cfg, blueprint=load("autonomous"), run_dir=tmp_path / "run", scm_override=scm, cell_binding=binding
+        )

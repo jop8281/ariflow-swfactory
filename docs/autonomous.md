@@ -40,6 +40,9 @@ accepted-input digest, Cell identity, and epoch. Plan decisions also bind the st
 `plan.json` consumed by implementation, so changing JSON while keeping Markdown cannot reuse approval. Plan approval requires intent approval over the
 same accepted inputs, checks all declared plan paths, and enforces the checked-in budget.
 
+Worker budget/target/policy settings and current issue eligibility are checked before sandbox
+creation or the first model stage, so environment overrides cannot overspend before a gate.
+
 The backend stores each decision immutably per Cell epoch. Retries can recover the same approval;
 they cannot restamp it over a changed artifact. Runtime accepted-input checks and delivery checks
 also refuse changed policy, artifact, issue, blueprint, or execution inputs. Such changes require

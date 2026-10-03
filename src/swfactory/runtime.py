@@ -192,6 +192,10 @@ def ctx_for(
     the very cell cleanup exists to close. Every path that can produce work or publish it leaves the
     flag at its default.
     """
+    if enforce_inputs:
+        from swfactory.autonomy import enforce_runtime_policy
+
+        enforce_runtime_policy(cfg, blueprint, cell_binding)
     run_dir = Path(run_dir).resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -263,6 +267,11 @@ def _prepare_ctx(
         # Refuse here, before a sandbox exists, and not for teardown: a cell whose issue closed
         # mid-run still has to be shut, or the refusal leaks the very thing cleanup exists for.
         raise StageError("scm", f"issue {issue.id} is {issue.state}; only open work is admitted", retryable=False)
+    if enforce_inputs and any(gate.mode == "policy" for gate in blueprint.gates):
+        from swfactory.autonomy import load_policy
+
+        if reason := load_policy().issue_reason(issue, cfg.repo):
+            raise StageError("policy", f"autonomous triage blocked before execution: {reason}")
     state = RunState(run_dir)
     # Admission BEFORE make_sandbox/make_agent: a refused task must not have started a MicroVM or
     # constructed an agent, let alone reached a stage body. Reading the issue above is the only I/O
