@@ -628,6 +628,7 @@ def test_autonomous_merge_waits_without_releasing_cell_then_completes(blueprints
     result = {"state": "pending", "reason": "tests running"}
     monkeypatch.setattr(scm, "autonomous_merge", lambda revision: result)
     task = blueprints_mod._merge_task("autonomous", 180)
+    assert task.kwargs["timeout"] == 180
     check = task.function
     context = {"dag_run": SimpleNamespace(run_id="run")}
     waiting = check({"job_idx": 0}, **context)

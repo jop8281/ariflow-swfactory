@@ -239,7 +239,7 @@ def _setup_task(name: str, shape: dict[str, Any]):
 
 def _merge_task(name: str, timeout_s: int):
     @task.sensor(
-        task_id="merge", mode="reschedule", poke_interval=30, timeout=7200, on_failure_callback=_failure_callback
+        task_id="merge", mode="reschedule", poke_interval=30, timeout=timeout_s, on_failure_callback=_failure_callback
     )
     def merge(job: dict, **context: Any):
         from airflow.sdk import PokeReturnValue
