@@ -94,6 +94,17 @@ def test_create_argv_snapshot_when_set() -> None:
     assert "--snapshot" not in _islo(snapshot="x").argv("ls")  # run never re-sends create flags
 
 
+def test_run_argv_keeps_islo_status_lines_off_the_commands_stdout() -> None:
+    """islo writes "→ Reconnecting to existing sandbox ..." to stdout unless --output json.
+
+    Observed live (islo 0.53.1): with ``plain`` the second command into a cell returned that line
+    ahead of ``git rev-parse HEAD`` and the run died with "recorded base commit is unavailable".
+    """
+    argv = _islo().argv("git rev-parse HEAD")
+    assert argv[argv.index("--output") + 1] == "json"
+    assert argv.index("--output") < argv.index("--")
+
+
 def test_run_argv_uses_bash_lc_and_cd_workdir() -> None:
     sb = _islo()
     assert sb.workdir == "/workspace/ariflow-swfactory/demo/target"

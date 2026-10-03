@@ -13,6 +13,8 @@ All notable changes to this project will be documented here. The format follows
 - Include the calculator target in installed packages by limiting the Rust output ignore rule to
   the repository root. Run the built wheel's demo outside the checkout before retaining release
   artifacts, so source-tree files cannot hide missing package assets.
+- Run islo cell commands with `--output json`: islo 0.53.1 prints its status lines on the command's
+  stdout in plain mode, which corrupted every parsed result after the first command into a cell.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.
