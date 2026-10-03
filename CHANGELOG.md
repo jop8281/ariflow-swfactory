@@ -6,6 +6,10 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Add a policy-governed autonomous line: automatic issue triage, digest/epoch-bound policy
+  approvals, and a backend-owned SHA-fenced merge gate scheduled by Airflow. Keep policy,
+  budgets, protections, and review authority outside unattended changes.
+
 - Keep development policy checks offline; move the admin-token-dependent live settings audit
   into a separate manual workflow. Development no longer requires an administration credential.
 

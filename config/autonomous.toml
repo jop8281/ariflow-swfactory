@@ -1,0 +1,14 @@
+# Human-maintained authority. Autonomous runs may never change this file or its enforcement.
+schema_version = 1
+enabled = true
+repository = "zozo123/ariflow-swfactory"
+base_branch = "main"
+required_labels = ["factory:autonomous"]
+denied_labels = ["security", "factory:blocked", "human-only"]
+allowed_paths = ["docs/**"]
+protected_paths = ["config/", "REVIEW.md", "REVIEW_LIQUID.md", "docs/factory/", "tests/test_autonomy.py"]
+budget_usd = 8.0
+required_checks = ["candidate-readiness", "protected-paths"]
+checks_app_id = 15368 # GitHub Actions; a manually posted success status is not test evidence.
+max_files = 30
+merge_timeout_s = 7200

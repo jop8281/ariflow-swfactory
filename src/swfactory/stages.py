@@ -1364,6 +1364,27 @@ def deliver(ctx: Ctx) -> StageResult:
     title = f"{ctx.issue.id}: {ctx.issue.title}"
     banner = "[REJECTED] " if rejected else "[BLOCKED] " if blocked else ""
     cell_id, epoch, _managed = cell_evidence(ctx)
+    if ctx.blueprint and any(gate.mode == "policy" for gate in ctx.blueprint.gates):
+        from swfactory.autonomy import load_policy
+        from swfactory.backend_scm import BackendScm
+
+        if not isinstance(ctx.scm, BackendScm) or blocked:
+            raise StageError("policy", "autonomous publication requires passing managed evidence")
+        test_results = [stage.numbers["tests_passed"] for stage in stages if "tests_passed" in stage.numbers]
+        ctx.scm.autonomous_evidence = {
+            "revision": load_policy().revision,
+            "agent": ctx.agent.kind,
+            "tests_passed": bool(test_results) and test_results[-1] == 1.0,
+            "review_verdict": rv.verdict,
+            "blockers": blockers,
+            "cost_usd": sum(record.cost_usd for record in _persisted(ctx)),
+            "budget_usd": ctx.cfg.max_budget_usd,
+            "approvals": [approval.model_dump(mode="json") for approval in approvals],
+            "artifact_digests": {
+                name: hashlib.sha256(ctx.read_artifact(f"{ctx.art}/{name}").encode()).hexdigest()
+                for name in ("intent.md", "plan.md", "plan.json", "review.json", "metrics.json", "approvals.json")
+            },
+        }
     url = ctx.scm.publish(
         branch=ctx.branch,
         patch=patch.encode("utf-8"),
@@ -1485,6 +1506,10 @@ def cli_approver(gate: Gate, ctx: Ctx) -> Approval:
     auto`` / ``SWF_APPROVE=auto`` is refused on a human gate: an environment variable that can
     switch a declared human gate off is not a gate, and this is the surface where that used to work.
     """
+    if gate.mode == "policy":
+        from swfactory.autonomy import policy_approval
+
+        return policy_approval(ctx, gate.name)
     if gate.mode == "auto":
         return Approval(gate=gate.name, decision="approve", actor="auto", mode="auto", at=datetime.now(UTC))
     _cell_id, _epoch, managed = cell_evidence(ctx)

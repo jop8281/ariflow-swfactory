@@ -324,6 +324,7 @@ def policy_document(cfg: Config, blueprint: Blueprint | None) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "config": {name: getattr(cfg, name) for name in POLICY_SETTINGS},
         "gate_replay_sha256": _replay_digest(cfg.gate_replay),
+        "autonomy_revision": _autonomy_revision(blueprint),
         "blueprint": blueprint.model_dump(mode="json") if blueprint is not None else None,
         "prompt_templates": [list(entry) for entry in prompt_document(blueprint)],
         "review_policy_sha256": packaged_review_policy_digest(blueprint),
@@ -579,3 +580,11 @@ def _managed(state: RunState) -> bool:
     except (OSError, ValueError):
         return True  # an unreadable binding is not a licence to re-pin locally
     return bool(isinstance(data, dict) and data.get("managed"))
+
+
+def _autonomy_revision(blueprint: Blueprint | None) -> str | None:
+    if blueprint is None or not any(gate.mode == "policy" for gate in blueprint.gates):
+        return None
+    from swfactory.autonomy import load_policy
+
+    return load_policy().revision

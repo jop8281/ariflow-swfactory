@@ -194,7 +194,7 @@ pub struct GateSpec {
     /// parses. Read [`GateSpec::requires_human`] rather than either field directly.
     #[serde(default)]
     pub auto: bool,
-    /// Who is allowed to answer: `"human"` or `"auto"`.
+    /// Who is allowed to answer: `"human"`, `"auto"`, or a backend-checked `"policy"`.
     ///
     /// The Python side made this explicit because a gate's authority used to be inferred by OR-ing
     /// `auto` with a global environment variable, so `SWF_APPROVE=auto` could turn a gate a
@@ -213,7 +213,7 @@ impl GateSpec {
     /// here cannot disagree with what the runtime does.
     pub fn requires_human(&self) -> bool {
         match self.mode.as_deref() {
-            Some("auto") => false,
+            Some("auto" | "policy") => false,
             Some(_) => true,
             None => !self.auto,
         }
@@ -1420,6 +1420,11 @@ order = ["intent", "deliver"]
             toml::from_str("after = \"intent\"\nartifact = \"intent.md\"\nmode = \"auto\"\n")
                 .expect("mode = auto must parse");
         assert!(!auto.requires_human());
+
+        let policy: GateSpec =
+            toml::from_str("after = \"intent\"\nartifact = \"intent.md\"\nmode = \"policy\"\n")
+                .expect("mode = policy must parse");
+        assert!(!policy.requires_human());
 
         // A blueprint written before the rename still parses and still means what it meant.
         let legacy: GateSpec =

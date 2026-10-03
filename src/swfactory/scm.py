@@ -778,6 +778,69 @@ class GitHubScm:
             pr_state="branch_only",
         )
 
+    def autonomous_snapshot(self, number: int, sha: str, prefix: str, digests: dict[str, str]) -> dict:
+        """Read current PR evidence from GitHub, with artifacts pinned to the published SHA."""
+        import urllib.parse
+
+        pr = self._gh_json(["gh", "api", f"repos/{self.repo}/pulls/{number}"])
+        files = self._gh_json(
+            ["gh", "api", "--paginate", "--slurp", f"repos/{self.repo}/pulls/{number}/files?per_page=100"]
+        )
+        files = [row for page in files for row in page]
+        if len(files) >= 3000 or len(files) != pr.get("changed_files"):
+            raise StageError("policy", "GitHub diff listing is incomplete")
+        paths = []
+        for row in files:
+            paths.append(row["filename"])
+            if row.get("previous_filename"):
+                paths.append(row["previous_filename"])
+            if row.get("status") not in {"added", "modified", "removed", "renamed"}:
+                raise StageError("policy", "unsupported autonomous file change")
+        for name, digest in digests.items():
+            path = urllib.parse.quote(prefix + "/" + name, safe="/")
+            content = self._exec(
+                [
+                    "gh",
+                    "api",
+                    "-H",
+                    "Accept: application/vnd.github.raw+json",
+                    f"repos/{self.repo}/contents/{path}?ref={sha}",
+                ],
+                None,
+            )
+            if hashlib.sha256(content.encode()).hexdigest() != digest:
+                raise StageError("policy", "published artifact differs from host-owned evidence")
+        pages = self._gh_json(
+            ["gh", "api", "--paginate", "--slurp", f"repos/{self.repo}/commits/{sha}/check-runs?per_page=100"]
+        )
+        reviews = self._gh_json(
+            ["gh", "api", "--paginate", "--slurp", f"repos/{self.repo}/pulls/{number}/reviews?per_page=100"]
+        )
+        return {
+            "pr": pr,
+            "paths": list(dict.fromkeys(paths)),
+            "checks": [row for page in pages for row in page["check_runs"]],
+            "reviews": [row for page in reviews for row in page],
+        }
+
+    def merge_verified(self, number: int, sha: str) -> None:
+        # GitHub's sha parameter is an atomic compare-and-merge; a moved head is refused remotely.
+        result = self._gh_json(
+            [
+                "gh",
+                "api",
+                "--method",
+                "PUT",
+                f"repos/{self.repo}/pulls/{number}/merge",
+                "-f",
+                f"sha={sha}",
+                "-f",
+                "merge_method=squash",
+            ]
+        )
+        if not isinstance(result, dict) or result.get("merged") is not True:
+            raise StageError("scm", "GitHub refused the verified merge")
+
     def _exec(
         self,
         argv: Sequence[str],

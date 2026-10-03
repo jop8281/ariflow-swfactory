@@ -1,0 +1,58 @@
+# Unattended changes remain inside config/autonomous.toml; Airflow is the lifecycle scheduler.
+# This blueprint, policy, review skill and budgets require a human-maintained change.
+[blueprint]
+name = "autonomous"
+version = 1
+description = "Policy-governed unattended line; backend owns approval and merge"
+
+[trigger]
+kind = "manual"
+
+[[targets]]
+repo = "zozo123/ariflow-swfactory"
+dir = ""
+base_branch = "main"
+
+[stages]
+order = ["intent", "spec", "plan", "build_and_test", "review", "deliver"]
+
+[[gates]]
+after = "intent"
+artifact = "intent.md"
+timeout_h = 1
+assigned = []
+mode = "policy"
+
+[[gates]]
+after = "plan"
+artifact = "plan.md"
+timeout_h = 1
+assigned = []
+mode = "policy"
+
+[limits]
+max_build_iterations = 2
+max_review_fixes = 1
+max_turns = 40
+budget_usd_per_stage = 2.0
+budget_usd = 8.0
+stage_timeout_h = 1
+max_parallel_jobs = 2
+
+[policy.build]
+extra_allowed_tools = []
+
+[review]
+policy = "REVIEW.md"
+nit_cap = 3
+
+[sandbox]
+kind = "islo"
+gateway_profile = "swfactory"
+environment = "swfactory"
+ttl_s = 43200
+
+idle_s = 900
+
+[deliver]
+labels = ["factory", "agent-authored", "autonomous"]

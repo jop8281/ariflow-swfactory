@@ -58,6 +58,34 @@ tests = "tests"
 # and dispatcher are newer control-plane surfaces, so they are repeated explicitly below together
 # with the existing contract/CI protections.
 protected = [
+  "src/swfactory/__init__.py",
+  "src/swfactory/backend/__init__.py",
+  "src/swfactory/backend/service.py",
+  "src/swfactory/backend/server.py",
+  "src/swfactory/backend/core_service.py",
+  "src/swfactory/config.py",
+  "src/swfactory/blueprint.py",
+  "src/swfactory/models.py",
+  "src/swfactory/runtime.py",
+  "src/swfactory/cell_runtime.py",
+  "src/swfactory/cells.py",
+  "src/swfactory/state.py",
+  "src/swfactory/metrics.py",
+  "src/swfactory/scm.py",
+  "src/swfactory/core_capabilities.py",
+  "src/swfactory/credential_lease.py",
+  "src/swfactory/control.py",
+  "src/swfactory/prompts/",
+  "config/autonomous.toml",
+  "src/swfactory/autonomy.py",
+  "src/swfactory/backend/autonomous_service.py",
+  "src/swfactory/approval_policy.py",
+  "src/swfactory/backend/scm_service.py",
+  "src/swfactory/backend_scm.py",
+  "src/swfactory/security_contract.py",
+  "src/swfactory/accepted_inputs.py",
+  "tests/test_autonomy.py",
+  "REVIEW.md",
   # --- this contract and the checks that police it -------------------------------------------
   "factory.toml",                       # a cell must not rewrite its own contract
   ".github/",                           # nor the required checks that gate its own PR
