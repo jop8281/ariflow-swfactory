@@ -1235,10 +1235,16 @@ def test_toolset_backend_names_match_the_upstream_prs() -> None:
     assert sandbox_mod.TOOLSET_BACKENDS["sbx"][2] is None  # released, no PR to name
 
 
-def test_toolset_unavailable_backend_names_its_pull_request() -> None:
+def test_toolset_unavailable_backend_names_its_pull_request(monkeypatch) -> None:
+    def unavailable(module_path):
+        assert module_path == sandbox_mod.TOOLSET_BACKENDS["opensandbox"][0]
+        raise ImportError("backend is absent from this provider version")
+
+    monkeypatch.setattr(sandbox_mod.importlib, "import_module", unavailable)
     with pytest.raises(StageError) as e:
         sandbox_mod.load_toolset_backend("opensandbox")
     assert "apache/airflow#71676" in str(e.value)
+    assert "provider version that includes it" in str(e.value)
 
 
 def test_toolset_surfaces_truncation_and_termination() -> None:

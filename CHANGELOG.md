@@ -6,6 +6,8 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Make unavailable-provider coverage independent of installed upstream backends, and describe
+  their introduction PRs without assuming those PRs remain open.
 - Keep local sandbox credentials scrubbed by disabling host shell startup files and removing
   shell startup environment overrides. Record webhook routing diagnostics before returning the
   response body so a received acknowledgment has a corresponding log entry.

@@ -1012,8 +1012,8 @@ def _factory_root() -> Path:
 # ---------------------------------------------------------------- upstream toolset backends
 
 # Airflow's own sandbox abstraction (provider apache-airflow-providers-common-ai). `sbx` ships in
-# the released provider; the other three are pending upstream pull requests, and the module/class
-# names below are the ones those PRs actually add — checked against the diffs, not guessed.
+# the released provider; other backends depend on the installed provider version. Their
+# module/class names and upstream introduction PRs were checked against the diffs, not guessed.
 TOOLSET_BACKENDS = {
     "sbx": ("airflow.providers.common.ai.sandbox.sbx", "SbxSandboxBackend", None),
     "islo": ("airflow.providers.common.ai.sandbox.islo", "IsloSandboxBackend", 71672),
@@ -1065,8 +1065,8 @@ def load_toolset_backend(name: str, **kwargs: object):
         module = importlib.import_module(module_path)
     except ImportError as e:
         where = (
-            f"it is still open upstream as apache/airflow#{pr} — install the provider from that "
-            "branch (see scripts/airflow_main.sh)"
+            f"it was introduced in apache/airflow#{pr} — install a provider version that includes "
+            "it (see scripts/airflow_main.sh)"
             if pr
             else "install apache-airflow-providers-common-ai"
         )
