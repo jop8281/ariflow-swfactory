@@ -355,6 +355,28 @@ def test_local_child_env_is_scrubbed(tmp_path, monkeypatch) -> None:
     assert "ghp_secret" not in res.stdout
 
 
+def test_local_child_cannot_reload_credentials_from_shell_startup(tmp_path, monkeypatch) -> None:
+    startup = tmp_path / "startup.sh"
+    startup.write_text("export GH_TOKEN=host-startup-credential\nprintf 'startup-ran\\n'\n", encoding="utf-8")
+    monkeypatch.setenv("BASH_ENV", str(startup))
+    monkeypatch.setenv("ENV", str(startup))
+    res = LocalSandbox(tmp_path).run('test -z "${GH_TOKEN:-}" && printf safe')
+    assert res.ok
+    assert res.stdout == "safe"
+
+
+def test_local_commands_do_not_load_host_login_profiles(tmp_path, monkeypatch) -> None:
+    seen = []
+
+    def run(argv, **kwargs):
+        seen.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(sandbox_mod.subprocess, "run", run)
+    LocalSandbox(tmp_path).run("true")
+    assert seen == [["bash", "--noprofile", "--norc", "-c", "true"]]
+
+
 # ---------------------------------------------------------------- SrtSandbox (fake srt)
 
 
@@ -446,7 +468,7 @@ def test_srt_ensure_inits_git_host_side_then_runs_confined(tmp_path, monkeypatch
 
     def fake_run(argv, **kwargs):
         calls.append(argv)
-        if argv[:2] == ["bash", "-lc"]:
+        if argv[:4] == ["bash", "--noprofile", "--norc", "-c"]:
             (tmp_path / "work" / ".git").mkdir(parents=True)
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
 
@@ -454,7 +476,7 @@ def test_srt_ensure_inits_git_host_side_then_runs_confined(tmp_path, monkeypatch
     monkeypatch.setattr(sandbox_mod.shutil, "which", lambda name: "/usr/local/bin/srt")
     sb = _srt(tmp_path)
     sb.ensure()
-    assert calls == [["bash", "-lc", "git init -q -b main"]]
+    assert calls == [["bash", "--noprofile", "--norc", "-c", "git init -q -b main"]]
     assert sb.settings_path.exists()
     sb.ensure()  # idempotent: .git present -> no second init
     assert len(calls) == 1
@@ -901,7 +923,7 @@ def test_docker_ensure_inits_git_host_side_then_runs_in_container(tmp_path, monk
     sb = _docker(tmp_path)
     sb.ensure()
     assert (sb.root / ".git").is_dir()
-    assert calls[0][:2] == ["bash", "-lc"] and "git init" in calls[0][2]
+    assert calls[0][:4] == ["bash", "--noprofile", "--norc", "-c"] and "git init" in calls[0][4]
     sb.ensure()  # idempotent: no second git init
     assert len(calls) == 1
     sb.run("true")

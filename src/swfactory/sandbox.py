@@ -174,6 +174,8 @@ SCRUB_PREFIXES = (
 )
 SCRUB_EXACT = frozenset(
     {
+        "BASH_ENV",
+        "ENV",
         "DATABASE_URL",
         "DOCKER_AUTH_CONFIG",
         "HF_TOKEN",
@@ -349,7 +351,7 @@ def _credential_env(pass_env: Sequence[str]) -> dict[str, str]:
 
 
 class LocalSandbox:
-    """A directory on the host. Commands run through ``bash -lc`` with a scrubbed environment."""
+    """A directory on the host. Commands run without shell startup files in a scrubbed environment."""
 
     def __init__(self, workdir: Path) -> None:
         self.root = Path(workdir).resolve()
@@ -373,9 +375,9 @@ class LocalSandbox:
             raise StageError("sandbox", f"git init failed in {self.root}: {res.stderr.strip()}")
 
     def run(self, cmd: str, *, cwd: str | None = None, timeout_s: int = 1800) -> RunResult:
-        """Run ``cmd`` via ``bash -lc`` inside ``cwd`` (default ``workdir``)."""
+        """Run ``cmd`` without host login profiles restoring credentials after the scrub."""
         return _run_subprocess(
-            ["bash", "-lc", cmd],
+            ["bash", "--noprofile", "--norc", "-c", cmd],
             cwd=self._abs(cwd) if cwd else self.root,
             env=scrub_env(os.environ),
             timeout_s=timeout_s,

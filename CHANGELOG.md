@@ -6,6 +6,9 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Keep local sandbox credentials scrubbed by disabling host shell startup files and removing
+  shell startup environment overrides. Record webhook routing diagnostics before returning the
+  response body so a received acknowledgment has a corresponding log entry.
 - Fail the promotion-policy live diff when `SWF_POLICY_ADMIN_TOKEN` is absent. A missing token used
   to exit 0 after a warning, so a green job could be cited as proof that branch protection had been
   compared when the log said it was not verified. The offline audit also rejects a live-diff step
