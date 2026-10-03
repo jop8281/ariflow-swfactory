@@ -15,6 +15,9 @@ All notable changes to this project will be documented here. The format follows
   artifacts, so source-tree files cannot hide missing package assets.
 - Run islo cell commands with `--output json`: islo 0.53.1 prints its status lines on the command's
   stdout in plain mode, which corrupted every parsed result after the first command into a cell.
+- Let islo and toolset (sbx) cells, which clone the whole repository, run subdirectory targets end to
+  end: the `Plan.work` scope check compares target-relative paths, and `.gitignore` ignores only the
+  root `target/`, so deliver can add evidence under `demo/target/`.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.
