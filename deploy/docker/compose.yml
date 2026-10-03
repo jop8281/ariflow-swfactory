@@ -56,17 +56,6 @@ services:
       SWF_DOCKER_CREDENTIALS: ${SWF_DOCKER_CREDENTIALS:-env}
       SWF_DOCKER_NETWORK: ${SWF_DOCKER_NETWORK:-bridge}
       SWF_DOCKER_USER: ${SWF_DOCKER_USER:-}
-      # WORKER copies of the backend coordinates. A backend-managed work cell reports every
-      # lifecycle transition (src/swfactory/cell_callback.py) and publishes (backend_scm.py) from
-      # THIS container, and both fail closed in the job's first stage when either value is missing
-      # — a failure that is invisible from the console, because the submission itself succeeds and
-      # no gate ever appears. The backend service's own copies below do not reach this process, so
-      # the pair is repeated here on purpose. Direct/unmanaged runs ignore both.
-      # The URL is fixed rather than taken from the host shell: an operator running `swf` on this
-      # machine exports the CONSOLE's address (http://localhost:8082), which addresses nothing
-      # from inside this network — the worker's route to the backend is the compose service name.
-      SWF_BACKEND_URL: http://backend:8082
-      SWF_BACKEND_TOKEN: ${SWF_BACKEND_TOKEN:-}
       # credentials: the agent key crosses into sandbox containers ONLY as the -e allowlist of
       # DockerSandbox (agent=claude, credentials=env); GH_TOKEN stays here (deliver: gh pr create).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
