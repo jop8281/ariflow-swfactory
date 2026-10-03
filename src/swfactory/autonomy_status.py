@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from swfactory.autonomy import load_policy
+from swfactory.cells import is_cell_id
 
 NEXT_ACTION = {
     "required_labels_missing": "Apply the policy's required labels, then retriage the issue.",
@@ -52,7 +53,7 @@ def status(root: Path, *, limit: int = 50) -> dict:
             {
                 "kind": kind,
                 "issue": parts[2] if kind == "triage" else None,
-                "cell_id": approval.get("cell_id") or (parts[0] if parts[0].startswith("cell_") else None),
+                "cell_id": approval.get("cell_id") or (parts[0] if is_cell_id(parts[0]) else None),
                 "state": state,
                 "reason": reason,
                 "recorded_at": recorded_at,
