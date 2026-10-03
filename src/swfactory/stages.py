@@ -778,7 +778,9 @@ def setup(ctx: Ctx) -> StageResult:
             raise StageError("sandbox", f"uv sync failed: {res.stderr.strip()[-800:]}", retryable=True)
     _contract(ctx)
     _review_policy(ctx)
-    return StageResult(stage="setup", duration_s=round(time.monotonic() - t0, 3))
+    duration = round(time.monotonic() - t0, 3)
+    ctx.state.write_control("setup-timing.json", _dumps({"duration_s": duration}))
+    return StageResult(stage="setup", duration_s=duration)
 
 
 @_timed

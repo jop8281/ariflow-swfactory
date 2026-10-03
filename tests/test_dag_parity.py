@@ -605,10 +605,11 @@ def test_dag_modules_do_not_import_swfactory_at_parse_time() -> None:
     assert not (DAGS / "factory.py").exists(), "dags/factory.py was replaced by dags/blueprints.py"
 
 
-def test_autonomous_merge_waits_without_releasing_cell_then_completes(blueprints_mod, monkeypatch):
+def test_autonomous_merge_waits_without_releasing_cell_then_completes(blueprints_mod, monkeypatch, tmp_path):
     from types import SimpleNamespace
 
     from swfactory.backend_scm import BackendScm
+    from swfactory.state import RunState
 
     scm = BackendScm(
         repo="zozo123/ariflow-swfactory",
@@ -619,7 +620,7 @@ def test_autonomous_merge_waits_without_releasing_cell_then_completes(blueprints
         epoch=1,
         policy_digest="policy:" + "b" * 64,
     )
-    ctx = SimpleNamespace(scm=scm)
+    ctx = SimpleNamespace(scm=scm, state=RunState(tmp_path))
     transitions = []
     monkeypatch.setattr(blueprints_mod, "_ctx", lambda *args: ctx)
     monkeypatch.setattr(

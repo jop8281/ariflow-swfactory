@@ -6,6 +6,17 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-03
+
+- Add read-only `swfactory state autonomy` inspection locally or through the authenticated
+  backend. Show blocked decisions, refusal reasons, timestamps, and next operator actions.
+- Retain setup and merge/CI-wait timings and expose available provider duration in saved run
+  inspection; leave unmeasured queue time explicit. Clarify replay, human, and autonomous paths.
+- Recheck issue eligibility before publication and immediately before merge. Removed eligibility
+  labels, blocking labels, or closed issues stop new autonomous mutations.
+- Keep autonomous execution experimental: real model/sandbox deployments and a real unattended
+  issue-to-GitHub-merge pilot have not yet been validated. Existing live scheduler E2E uses scripted work.
+
 - Add a policy-governed autonomous line: automatic issue triage, digest/epoch-bound policy
   approvals, and a backend-owned SHA-fenced merge gate scheduled by Airflow. Keep policy,
   budgets, protections, and review authority outside unattended changes.
@@ -20,6 +31,10 @@ All notable changes to this project will be documented here. The format follows
   workflow. Choose lint, core tests, Rust, or scripted evals without replacing promotion evidence.
 - Remove historical one-shot maintenance workflows and use one release issue-closure entry point.
   Pass manifest paths as environment data so shell substitutions cannot execute dispatch input.
+Start from source with `uv sync --locked && uv run swfactory demo`. This is a credential-free
+scripted replay, with local Git delivery. For deployed operation, see `docs/autonomous.md`;
+configure the backend and provider before applying `factory:autonomous` to an issue.
+
 ## [2.3.0] - 2026-10-03
 
 - Reject skipped or unreachable live-policy comparisons and keep webhook response bodies intact

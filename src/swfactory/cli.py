@@ -511,6 +511,45 @@ state_app = typer.Typer(help="Inspect saved host run evidence without reconnecti
 app.add_typer(state_app, name="state")
 
 
+@state_app.command("autonomy")
+def state_autonomy(
+    root: Annotated[Path, typer.Option(help="Backend state directory containing autonomy.sqlite3")] = Path(".factory"),
+    backend_url: Annotated[
+        str, typer.Option(envvar="SWF_BACKEND_URL", help="Read status from a deployed backend")
+    ] = "",
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 50,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Show policy outcomes, refusal reasons, and the next operator action."""
+    import os
+    import sqlite3
+
+    from swfactory.autonomy_status import remote_status, status
+
+    try:
+        result = (
+            remote_status(backend_url, os.environ.get("SWF_BACKEND_TOKEN", ""), limit=limit)
+            if backend_url
+            else status(root, limit=limit)
+        )
+    except (OSError, ValueError, sqlite3.Error) as error:
+        detail = f"HTTP {error.code}" if isinstance(error, urllib.error.HTTPError) else str(error)
+        typer.echo(f"autonomy status unavailable: {detail}", err=True)
+        raise typer.Exit(1) from error
+    if as_json:
+        typer.echo(json.dumps(result, indent=2))
+        return
+    typer.echo(f"Policy {result['policy_revision']} enabled={result['enabled']}")
+    if not result["decisions"]:
+        typer.echo("No recorded autonomous decisions; this is not proof of a completed run.")
+    for row in result["decisions"]:
+        typer.echo(
+            f"{row['kind']} issue={row['issue'] or '-'} cell={row['cell_id'] or '-'} "
+            f"{row['state']}: {row['reason'] or '-'}"
+        )
+        typer.echo(f"  {row['next_action']}")
+
+
 @state_app.command("list")
 def state_list(
     root: Annotated[Path, typer.Option(help="directory containing saved run directories")] = Path(".factory"),

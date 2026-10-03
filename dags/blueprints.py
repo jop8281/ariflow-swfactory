@@ -244,14 +244,16 @@ def _merge_task(name: str, timeout_s: int):
     def merge(job: dict, **context: Any):
         from airflow.sdk import PokeReturnValue
 
-        from swfactory.autonomy import load_policy
+        from swfactory.autonomy import load_policy, record_merge_timing
         from swfactory.backend_scm import BackendScm
         from swfactory.models import StageError
 
         ctx = _ctx(name, job, context["dag_run"].run_id)
         if not isinstance(ctx.scm, BackendScm):
             raise StageError("policy", "autonomous merge requires managed SCM")
+        record_merge_timing(ctx)
         result = ctx.scm.autonomous_merge(load_policy().revision)
+        record_merge_timing(ctx, result)
         done = result.get("state") == "merged"
         if done:
             _cell_transition(job, "success", context, "merged")

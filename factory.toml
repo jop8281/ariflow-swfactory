@@ -58,6 +58,7 @@ tests = "tests"
 # and dispatcher are newer control-plane surfaces, so they are repeated explicitly below together
 # with the existing contract/CI protections.
 protected = [
+  "src/swfactory/autonomy_status.py",
   "src/swfactory/__init__.py",
   "src/swfactory/backend/__init__.py",
   "src/swfactory/backend/service.py",

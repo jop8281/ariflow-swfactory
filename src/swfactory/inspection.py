@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,13 @@ def inspect_run(root: Path, run_id: str, *, event_limit: int = 50) -> dict[str, 
         "operations": [],
         "journals": {},
         "errors": {},
+        "timings": {
+            "queue_s": None,
+            "setup_s": None,
+            "provider_reported_s": None,
+            "merge_wait_s": None,
+            "ci_checks_wait_s": None,
+        },
     }
     try:
         identity = json.loads(state.read_control("identity.json"))
@@ -66,6 +74,28 @@ def inspect_run(root: Path, run_id: str, *, event_limit: int = 50) -> dict[str, 
         result["recovered_fragments"] = sorted(path.name for path in recovery.glob("*.tail") if path.is_file())
     except (OSError, ValueError) as error:
         result["errors"]["recovery"] = str(error)
+    from swfactory.call_accounting import CallLedger
+
+    try:
+        calls = CallLedger(state).records()
+        durations = [(call.receipt or {}).get("duration_ms") for call in calls]
+        if (
+            calls
+            and all((call.receipt or {}).get("agent") == "claude" for call in calls)
+            and all(isinstance(value, (int, float)) and value > 0 for value in durations)
+        ):
+            result["timings"]["provider_reported_s"] = round(sum(durations) / 1000, 3)
+        if state.has_control("setup-timing.json"):
+            result["timings"]["setup_s"] = json.loads(state.read_control("setup-timing.json"))["duration_s"]
+        if state.has_control("merge-timing.json"):
+            timing = json.loads(state.read_control("merge-timing.json"))
+            end = timing.get("finished_at", timing["observed_at"])
+            result["timings"]["merge_wait_s"] = max(
+                0, (datetime.fromisoformat(end) - datetime.fromisoformat(timing["started_at"])).total_seconds()
+            )
+            result["timings"]["ci_checks_wait_s"] = timing["ci_checks_wait_s"]
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        result["errors"]["timings"] = str(error)
     return result
 
 
