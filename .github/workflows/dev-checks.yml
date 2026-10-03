@@ -1,0 +1,69 @@
+name: dev-checks
+run-name: dev-checks (${{ inputs.check }}) on ${{ github.ref_name }}
+# Auxiliary compute for iteration; only ci.yml produces promotion evidence.
+on:
+  workflow_dispatch:
+    inputs:
+      check:
+        description: Development check to run on the selected branch
+        type: choice
+        options: [lint, core, rust, evals]
+        default: core
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: dev-checks-${{ github.ref }}-${{ inputs.check }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CHECK: ${{ inputs.check }}
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.12" }
+      - uses: dtolnay/rust-toolchain@stable
+        if: inputs.check == 'rust'
+        with: { components: rustfmt, clippy }
+      - uses: Swatinem/rust-cache@v2
+        if: inputs.check == 'rust'
+        with: { workspaces: "." }
+      - name: Run the selected check
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$CHECK" in
+            lint)
+              uv sync --locked
+              uv run --no-sync ruff check .
+              uv run --no-sync ruff format --check .
+              ;;
+            core)
+              uv sync --locked
+              uv run --no-sync pytest --junitxml=.factory/dev-checks/junit.xml
+              uv run --no-sync swfactory demo
+              ;;
+            rust)
+              cargo fmt --all --check
+              cargo clippy --workspace --locked --all-targets --all-features -- -D warnings
+              cargo test --workspace --locked
+              ;;
+            evals)
+              uv sync --locked
+              uv run --no-sync python -m swfactory.evals --suite demo/evals
+              ;;
+            *) echo "Unknown development check" >&2; exit 2 ;;
+          esac
+      - name: Retain test and evaluation evidence
+        if: always() && !cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-checks-${{ inputs.check }}-${{ github.run_id }}
+          path: |
+            .factory/dev-checks/junit.xml
+            .factory/evals/*/*/run/report.json
+          if-no-files-found: ignore
