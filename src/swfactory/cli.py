@@ -642,6 +642,10 @@ def webhook_serve(
         int,
         typer.Option(min=1, envvar="SWF_WEBHOOK_MAX_ATTEMPTS", help="dispatch attempts per cycle"),
     ] = 12,
+    dispatch_workers: Annotated[
+        int,
+        typer.Option(min=1, max=32, envvar="SWF_WEBHOOK_DISPATCH_WORKERS", help="concurrent webhook submissions"),
+    ] = 4,
     backend_url: Annotated[
         str,
         typer.Option(
@@ -696,6 +700,7 @@ def webhook_serve(
         host=host,
         inbox=queue,
         max_attempts=max_attempts,
+        dispatch_workers=dispatch_workers,
         work_orders=orders,
     )
 

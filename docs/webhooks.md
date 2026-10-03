@@ -114,10 +114,16 @@ the child DAG's normal validation still applies when Airflow runs it.
 | `SWF_WEBHOOK_INBOX` / `--inbox` | `.factory/webhooks/inbox.sqlite3` | Persistent database path |
 | `SWF_WEBHOOK_MAX_PENDING` / `--max-pending` | `10000` | Maximum pending, dispatching and dead receipts combined |
 | `SWF_WEBHOOK_MAX_ATTEMPTS` / `--max-attempts` | `12` | Claims before a delivery becomes dead |
+| `SWF_WEBHOOK_DISPATCH_WORKERS` / `--dispatch-workers` | `4` | Concurrent upstream submissions (1–32) |
 | `SWF_BACKEND_URL` / `--backend-url` | unset (legacy Airflow mode) | Managed work-order boundary |
 | `SWF_BACKEND_TOKEN` / `--backend-token-env` | `SWF_BACKEND_TOKEN` | Env var holding the backend bearer token |
 
-`GET /healthz` is process liveness. `GET /readyz` checks database readability, worker liveness
+Deliveries are persisted before acknowledgment, then submitted by a bounded worker pool. A slow
+submission no longer blocks unrelated deliveries. Completion order can differ from receipt order.
+Use `--dispatch-workers 1` for serial submissions. This setting controls intake throughput;
+backend admission and Airflow still control job execution and capacity.
+
+`GET /healthz` is process liveness. `GET /readyz` checks database readability, all submission workers’ liveness
 and intake capacity, and returns counts plus the oldest pending age. It intentionally does not
 require backend connectivity: the inbox can accept work during an outage. Monitor dead counts
 and pending age separately. A successful 202 means durable admission, never that a job passed.

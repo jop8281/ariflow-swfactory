@@ -365,7 +365,7 @@ def _retry_after(headers: Mapping[str, str] | None) -> float:
 
 
 class Dispatcher:
-    """One background worker; the SQLite lease permits multiple processes without double claims."""
+    """Bounded submission workers; SQLite leases prevent double claims across threads and processes."""
 
     def __init__(
         self,
@@ -376,12 +376,15 @@ class Dispatcher:
         opener: Opener,
         log: Callable[[str], None],
         max_attempts: int = 12,
+        workers: int = 4,
         work_orders: WorkOrders | None = None,
     ) -> None:
         from swfactory.webhook import _safe_airflow_base, _safe_backend_base
 
         if max_attempts < 1:
             raise ValueError("max_attempts must be positive")
+        if not 1 <= workers <= 32:
+            raise ValueError("workers must be between 1 and 32")
         self.airflow_url = _safe_airflow_base(airflow_url)
         # Managed mode: the receiver's only outbound mutation is a work order. Legacy direct-Airflow
         # mode stays reachable for a sandbox with no backend, and is the only mode that needs an
@@ -401,17 +404,31 @@ class Dispatcher:
         self.log = log
         self.max_attempts = max_attempts
         self.stopped = threading.Event()
-        self.wakeup = threading.Event()
-        self.thread = threading.Thread(target=self._run, name="swfactory-dispatch", daemon=True)
+        self.wakeups = [threading.Event() for _ in range(workers)]
+        self.threads = [
+            threading.Thread(target=self._run, args=(wakeup,), name=f"swfactory-dispatch-{i}", daemon=True)
+            for i, wakeup in enumerate(self.wakeups)
+        ]
 
     def start(self) -> None:
-        self.thread.start()
+        for thread in self.threads:
+            thread.start()
+
+    def is_alive(self) -> bool:
+        return all(thread.is_alive() for thread in self.threads)
+
+    def notify(self) -> None:
+        for wakeup in self.wakeups:
+            wakeup.set()
 
     def close(self) -> None:
         self.stopped.set()
-        self.wakeup.set()
-        # If an API call is still in flight, its durable lease is recoverable on restart.
-        self.thread.join(timeout=5)
+        self.notify()
+        # One shutdown budget for the entire pool; in-flight leases recover on restart.
+        deadline = time.monotonic() + 5
+        for thread in self.threads:
+            if thread.ident is not None:
+                thread.join(timeout=max(0, deadline - time.monotonic()))
 
     def _submit(self, delivery: Delivery) -> dict[str, Any]:
         """One attempt at the configured boundary. Returns the backend receipt, empty in legacy."""
@@ -477,13 +494,13 @@ class Dispatcher:
         )
         return True
 
-    def _run(self) -> None:
+    def _run(self, wakeup: threading.Event) -> None:
         while not self.stopped.is_set():
-            self.wakeup.clear()
+            wakeup.clear()
             try:
                 if self.dispatch_one():
                     continue
             except (sqlite3.Error, OSError):
                 # Never print database statements or upstream responses (both may hold data).
                 self.log("dispatch outcome=inbox_unavailable; will retry")
-            self.wakeup.wait(timeout=1)
+            wakeup.wait(timeout=1)

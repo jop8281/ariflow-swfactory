@@ -446,7 +446,7 @@ def make_handler(
                 except (sqlite3.Error, OSError):
                     self._reply(503, {"ok": False, "error": "inbox unavailable"})
                     return
-                alive = dispatcher is not None and dispatcher.thread.is_alive()
+                alive = dispatcher is not None and dispatcher.is_alive()
                 capacity = (
                     sum(summary["counts"][state] for state in ("pending", "dispatching", "dead")) < inbox.max_pending
                 )
@@ -594,7 +594,7 @@ def make_handler(
                 self._reply(503, {"error": "inbox unavailable or full"}, delivery_id, event)
                 return
             if dispatcher is not None:
-                dispatcher.wakeup.set()
+                dispatcher.notify()
             self._reply(
                 202,
                 {
@@ -639,6 +639,7 @@ def make_server(
     log: Callable[[str], None] | None = None,
     inbox: DeliveryInbox | None = None,
     max_attempts: int = 12,
+    dispatch_workers: int = 4,
     work_orders: WorkOrders | None = None,
 ) -> HTTPServer:
     """A bound (not yet serving) ``ThreadingHTTPServer``; ``port=0`` picks an ephemeral port
@@ -654,6 +655,7 @@ def make_server(
             opener=opener,
             log=log or (lambda line: print(line, file=sys.stderr, flush=True)),
             max_attempts=max_attempts,
+            workers=dispatch_workers,
             work_orders=work_orders,
         )
     handler = make_handler(
@@ -669,7 +671,7 @@ def make_server(
 
     class Server(ThreadingHTTPServer):
         def server_close(self) -> None:
-            if dispatcher is not None and dispatcher.thread.ident is not None:
+            if dispatcher is not None:
                 dispatcher.close()
             super().server_close()
 
@@ -689,6 +691,7 @@ def serve(
     host: str = "0.0.0.0",
     inbox: DeliveryInbox | None = None,
     max_attempts: int = 12,
+    dispatch_workers: int = 4,
     work_orders: WorkOrders | None = None,
 ) -> None:
     """Run the receiver until interrupted (``swfactory webhook serve``)."""
@@ -701,6 +704,7 @@ def serve(
         host=host,
         inbox=inbox,
         max_attempts=max_attempts,
+        dispatch_workers=dispatch_workers,
         work_orders=work_orders,
     )
     bound = server.server_address[1]

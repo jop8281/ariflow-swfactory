@@ -6,6 +6,9 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Submit durable webhook deliveries concurrently with four bounded workers by default; configure
+  1–32 workers without bypassing backend admission or Airflow execution limits.
+
 - Add on-demand asynchronous development checks in GitHub Actions and a core-first contributor
   workflow. Choose lint, core tests, Rust, or scripted evals without replacing promotion evidence.
 - Remove historical one-shot maintenance workflows and use one release issue-closure entry point.
