@@ -79,6 +79,18 @@ def test_status_response_contains_only_operator_fields(tmp_path):
     assert "do-not-expose" not in json.dumps(status(tmp_path))
 
 
+def test_local_status_ignores_backend_environment_and_preserves_recorded_revision(tmp_path, monkeypatch):
+    AutonomyStore(tmp_path / "autonomy.sqlite3").bind(
+        "triage:acme/repo:1:old:digest", {"state": "eligible", "revision": "old"}
+    )
+    monkeypatch.setenv("SWF_BACKEND_URL", "http://invalid.example")
+    output = CliRunner().invoke(app, ["state", "autonomy", "--local", "--root", str(tmp_path), "--json"])
+    assert output.exit_code == 0, output.output
+    result = json.loads(output.output)
+    assert result["decisions"][0]["policy_revision"] == "old"
+    assert result["policy_revision"] != "old"
+
+
 @pytest.mark.parametrize(
     "url", ["http://example.com", "https://user:secret@example.com", "https://example.com?token=secret"]
 )

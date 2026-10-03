@@ -517,6 +517,7 @@ def state_autonomy(
     backend_url: Annotated[
         str, typer.Option(envvar="SWF_BACKEND_URL", help="Read status from a deployed backend")
     ] = "",
+    local: Annotated[bool, typer.Option("--local", help="Read local state even when SWF_BACKEND_URL is set")] = False,
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 50,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -529,7 +530,7 @@ def state_autonomy(
     try:
         result = (
             remote_status(backend_url, os.environ.get("SWF_BACKEND_TOKEN", ""), limit=limit)
-            if backend_url
+            if backend_url and not local
             else status(root, limit=limit)
         )
     except (OSError, ValueError, sqlite3.Error) as error:

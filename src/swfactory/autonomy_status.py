@@ -41,6 +41,9 @@ def status(root: Path, *, limit: int = 50) -> dict:
         parts = key.split(":")
         reason = value.get("reason")
         approval = value.get("approval") or {}
+        revision = value.get("revision")
+        if not revision and str(approval.get("actor", "")).startswith("policy:"):
+            revision = approval["actor"][len("policy:") :]
         kind = "triage" if key.startswith("triage:") else "gate" if approval else "publication"
         if key.startswith("blocked-gate:"):
             kind = "gate"
@@ -53,6 +56,7 @@ def status(root: Path, *, limit: int = 50) -> dict:
                 "state": state,
                 "reason": reason,
                 "recorded_at": recorded_at,
+                "policy_revision": revision,
                 "next_action": NEXT_ACTION.get(
                     reason, "Inspect the rejected inputs; use a new admission after correcting them."
                 )

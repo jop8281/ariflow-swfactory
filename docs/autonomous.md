@@ -104,12 +104,13 @@ in the same diff. Governance enforcement issue #2048 remains separate from unatt
 # Uses SWF_BACKEND_URL and SWF_BACKEND_TOKEN; status never approves or retries work.
 uv run swfactory state autonomy --json
 # Run on the backend host when inspecting its local state instead.
-uv run swfactory state autonomy --root .factory --json
+uv run swfactory state autonomy --local --root .factory --json
 uv run swfactory state inspect RUN_ID --root .factory
 ```
 
 Status includes recorded triage/gate/publication decisions, refusal reasons, and the next operator
-action. An `eligible` decision means eligibility was checked; it is not proof of admission or
+action and the revision that recorded it. These are historical decisions, not current authorization.
+An `eligible` decision means eligibility was checked; it is not proof of admission or
 execution. Older decisions may lack timestamps. Correct the blocking condition before retriage;
 changed gate inputs require a new admission/epoch, rather than editing the recorded approval.
 
