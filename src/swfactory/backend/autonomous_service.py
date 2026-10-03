@@ -134,10 +134,15 @@ def approve(factory: Factory, body: dict) -> dict:
 
 def validate_publication(factory: Factory, body: dict, patch: bytes) -> dict | None:
     """Validate host-generated evidence against backend-owned approvals before publication."""
+    from swfactory.scm import GitHubScm
+
     cell = factory._cell(text(body, "cell_id"))
     if cell.get("airflow_dag_id") != LINE:
         return None
     policy, cell, _, _, _ = authority(factory, body)
+    issue = GitHubScm(factory.repo, policy.base_branch).fetch_issue(str(cell["issue"]))
+    if reason := policy.issue_reason(issue, factory.repo):
+        raise Refused(403, f"autonomous publication blocked: {reason}")
     evidence = body.get("autonomous_evidence")
     if not isinstance(evidence, dict):
         raise Refused(403, "autonomous publication lacks host evidence")
@@ -217,6 +222,9 @@ def merge(factory: Factory, body: dict) -> dict:
             return {"state": "merged", "sha": sha, "pr_number": number, "policy_revision": policy.revision}
         if pr.get("state") != "open" or pr.get("draft"):
             raise Refused(403, "PR is not open and ready for merge")
+        issue = scoped.fetch_issue(str(cell["issue"]))
+        if reason := policy.issue_reason(issue, factory.repo):
+            raise Refused(403, f"autonomous merge blocked: {reason}")
         policy.check_paths(snapshot["paths"], artifact_prefix=prefix)
         if set(snapshot["paths"]) != set(recorded["paths"]):
             raise Refused(409, "PR diff moved after publication")

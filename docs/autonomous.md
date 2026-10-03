@@ -60,6 +60,8 @@ live until merge completes or the task fails; only then does lifecycle completio
 
 The backend re-reads GitHub immediately before merging. It requires:
 
+- The issue is still open and carries the required labels without a denied label. Publication
+  checks eligibility again too; removing the eligibility label or closing the issue stops new mutations.
 - The published head SHA and base repository/branch still match.
 - The actual PR paths still match the approved publication and stay inside policy.
 - The published intent, rendered/structured plan, review, metrics, and approvals still match host-recorded digests.
