@@ -1477,7 +1477,15 @@ order = ["intent", "deliver"]
         let names: Vec<&str> = seen.iter().map(|(stem, _)| stem.as_str()).collect();
         assert_eq!(
             names,
-            vec!["default", "hotfix", "liquid", "selfhost", "stress", "toolset"]
+            vec![
+                "autonomous",
+                "default",
+                "hotfix",
+                "liquid",
+                "selfhost",
+                "stress",
+                "toolset"
+            ]
         );
 
         let by_stem = |stem: &str| {
@@ -1564,10 +1572,26 @@ order = ["intent", "deliver"]
         assert!(u64::from(liquid.gate_timeout_h()) * 3600 < 24 * 3600);
         assert!(liquid.sandbox.ttl_s > u64::from(liquid.gate_timeout_h()) * 3600);
 
+        let Some(autonomous) = by_stem("autonomous") else {
+            panic!("autonomous.toml missing");
+        };
+        assert_eq!(autonomous.name, "autonomous");
+        assert_eq!(autonomous.targets.len(), 1);
+        assert_eq!(autonomous.targets[0].dir, "");
+        assert_eq!(autonomous.order, CANONICAL_ORDER.to_vec());
+        assert_eq!(autonomous.gates.len(), 2);
+        assert!(autonomous
+            .gates
+            .iter()
+            .all(|g| g.mode.as_deref() == Some("policy")));
+        assert!(autonomous.gates.iter().all(|g| !g.requires_human()));
+        assert_eq!(autonomous.limits.budget_usd, 8.0);
+        assert_eq!(autonomous.limits.stage_timeout_h, 1);
+
         let Some(selfhost) = by_stem("selfhost") else {
             panic!("selfhost.toml missing");
         };
-        // The self-host line is the only one whose target is the factory itself, so the operator
+        // The manual self-host line keeps its identified-human gates, so the operator
         // pins the two properties that make that survivable: an empty target dir really does mean
         // the repository root, and neither gate may self-approve.
         assert_eq!(selfhost.name, "selfhost");
