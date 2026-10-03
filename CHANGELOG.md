@@ -6,6 +6,10 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Fail the promotion-policy live diff when `SWF_POLICY_ADMIN_TOKEN` is absent. A missing token used
+  to exit 0 after a warning, so a green job could be cited as proof that branch protection had been
+  compared when the log said it was not verified. The offline audit also rejects a live-diff step
+  that masks `diff` with `continue-on-error`, `|| true`, or a token test that skips the command.
 - Add one system map for the atelier flow, concepts, current ownership, and evidence-based graduation
   milestones. Distinguish the current Python managed runtime from the proposed Rust manager and
   consolidate the duplicate runtime boundary table into the canonical ownership map.
