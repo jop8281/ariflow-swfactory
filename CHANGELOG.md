@@ -8,6 +8,8 @@ All notable changes to this project will be documented here. The format follows
 
 - Add on-demand asynchronous development checks in GitHub Actions and a core-first contributor
   workflow. Choose lint, core tests, Rust, or scripted evals without replacing promotion evidence.
+- Remove historical one-shot maintenance workflows and use one release issue-closure entry point.
+  Pass manifest paths as environment data so shell substitutions cannot execute dispatch input.
 ## [2.3.0] - 2026-10-03
 
 - Reject skipped or unreachable live-policy comparisons and keep webhook response bodies intact

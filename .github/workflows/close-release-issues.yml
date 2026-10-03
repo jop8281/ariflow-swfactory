@@ -21,16 +21,18 @@ jobs:
   close-release-issues:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      MANIFEST_PATH: ${{ inputs.manifest_path }}
     steps:
       - uses: actions/checkout@v6
 
       - name: Validate release issue manifest
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/close_release_issues.py "${{ inputs.manifest_path }}"
+        run: python scripts/close_release_issues.py "$MANIFEST_PATH"
 
       - name: Close only manifest-declared issues
         if: inputs.apply
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/close_release_issues.py "${{ inputs.manifest_path }}" --apply
+        run: python scripts/close_release_issues.py "$MANIFEST_PATH" --apply
