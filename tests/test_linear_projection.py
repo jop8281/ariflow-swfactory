@@ -144,3 +144,43 @@ def test_workflow_state_rejects_wrong_identity_or_category(monkeypatch, field):
     serve(monkeypatch, lambda p: response)
     with pytest.raises(ProjectionTransportError):
         LinearProjectionTransport(KEY).resolve_state(WORKSPACE, TEAM, STATE, "started")
+
+
+def issue_state(state_id=OTHER, state_type="unstarted"):
+    return {"id": ISSUE, "team": {"id": TEAM}, "state": {"id": state_id, "type": state_type}}
+
+
+def test_status_update_and_repeat_observation_converge_without_second_write(monkeypatch):
+    current = issue_state()
+    writes = []
+
+    def handler(payload):
+        nonlocal current
+        if "FactoryProjectionState(" in payload["query"]:
+            return state_document()
+        if "FactoryProjectionIssueState(" in payload["query"]:
+            return {"data": {"issue": current}}
+        writes.append(payload["variables"])
+        current = issue_state(STATE, "started")
+        return {"data": {"issueUpdate": {"success": True, "issue": current}}}
+
+    serve(monkeypatch, handler)
+    transport = LinearProjectionTransport(KEY)
+    first = transport.update_issue_state(WORKSPACE, ISSUE, TEAM, STATE, "started")
+    assert first.state_id == STATE
+    assert transport.update_issue_state(WORKSPACE, ISSUE, TEAM, STATE, "started") == first
+    assert writes == [{"id": ISSUE, "input": {"stateId": STATE}}]
+
+
+@pytest.mark.parametrize("state_type", ["completed", "canceled"])
+def test_terminal_state_is_not_downgraded(monkeypatch, state_type):
+    def handler(payload):
+        if "FactoryProjectionState(" in payload["query"]:
+            return state_document()
+        if "FactoryProjectionIssueState(" in payload["query"]:
+            return {"data": {"issue": issue_state(OTHER, state_type)}}
+        pytest.fail("terminal issue was mutated")
+
+    serve(monkeypatch, handler)
+    with pytest.raises(ProjectionTransportError, match="Terminal"):
+        LinearProjectionTransport(KEY).update_issue_state(WORKSPACE, ISSUE, TEAM, STATE, "started")

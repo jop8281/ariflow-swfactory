@@ -57,6 +57,14 @@ class AttachmentReceipt:
     head_sha: str
 
 
+@dataclass(frozen=True)
+class IssueStateReceipt:
+    issue_id: str
+    team_id: str
+    state_id: str
+    state_type: str
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -164,3 +172,48 @@ class LinearProjectionTransport:
         if state.get("id") != state_id or state.get("type") != state_type or state["team"].get("id") != team_id:
             raise ProjectionTransportError("Linear workflow identity or category differs")
         return state_id
+
+    @staticmethod
+    def _issue_state(row: object, issue_id: str, team_id: str) -> IssueStateReceipt:
+        if not isinstance(row, dict) or not isinstance(row.get("team"), dict) or not isinstance(row.get("state"), dict):
+            raise ProjectionTransportError("Linear issue state receipt is invalid")
+        if row.get("id") != issue_id or row["team"].get("id") != team_id:
+            raise ProjectionTransportError("Linear issue state identity differs")
+        state = row["state"]
+        if state.get("type") not in {"triage", "backlog", "unstarted", "started", "completed", "canceled"}:
+            raise ProjectionTransportError("Linear issue state category is invalid")
+        return IssueStateReceipt(issue_id, team_id, _uuid(state.get("id")), state["type"])
+
+    def observe_issue_state(self, issue_id: str, team_id: str) -> IssueStateReceipt:
+        issue_id, team_id = _uuid(issue_id), _uuid(team_id)
+        data = self._request(
+            """query FactoryProjectionIssueState($id: String!) {
+          issue(id: $id) { id team { id } state { id type } }
+        }""",
+            {"id": issue_id},
+        )
+        return self._issue_state(data.get("issue"), issue_id, team_id)
+
+    def update_issue_state(
+        self, workspace_id: str, issue_id: str, team_id: str, state_id: str, state_type: str
+    ) -> IssueStateReceipt:
+        issue_id = _uuid(issue_id)
+        state_id = self.resolve_state(workspace_id, team_id, state_id, state_type)
+        before = self.observe_issue_state(issue_id, team_id)
+        if before.state_id == state_id and before.state_type == state_type:
+            return before
+        if before.state_type in {"completed", "canceled"}:
+            raise ProjectionTransportError("Terminal Linear issue cannot be overwritten by projection")
+        data = self._request(
+            """mutation FactoryProjectionIssueUpdate($id: String!, $input: IssueUpdateInput!) {
+          issueUpdate(id: $id, input: $input) { success issue { id team { id } state { id type } } }
+        }""",
+            {"id": issue_id, "input": {"stateId": state_id}},
+        )
+        result = data.get("issueUpdate")
+        if not isinstance(result, dict) or result.get("success") is not True:
+            raise ProjectionTransportError("Linear issue state write is unverified")
+        receipt = self._issue_state(result.get("issue"), issue_id, team_id)
+        if receipt.state_id != state_id or receipt.state_type != state_type:
+            raise ProjectionTransportError("Linear issue state write differs from requested state")
+        return receipt
