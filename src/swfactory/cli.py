@@ -38,6 +38,26 @@ from swfactory.stages import Approver, Ctx, cli_approver, run_pipeline, setup
 app = typer.Typer(help="AI-native software factory.", no_args_is_help=True, add_completion=False)
 
 
+@app.command("linear-preview")
+def linear_preview_cmd(
+    issue_id: Annotated[str, typer.Argument(help="immutable Linear issue UUID")],
+    workspace_id: Annotated[str, typer.Option(help="expected Linear workspace UUID")],
+    project_id: Annotated[str, typer.Option(help="expected Linear project UUID")],
+) -> None:
+    """Read Linear source text on a trusted controller; does not admit or schedule work."""
+    import os
+
+    from swfactory.linear_source import LinearSource, LinearSourceError
+
+    try:
+        source = LinearSource(os.environ.get("SWF_LINEAR_API_KEY", ""), workspace_id, project_id)
+        preview = source.preview(issue_id)
+    except LinearSourceError as error:
+        typer.echo(f"linear preview: {error}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps(preview.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+
+
 @app.command("backend")
 def backend_serve(host: str = "127.0.0.1", port: int = 8082) -> None:
     """Serve the factory API for the Rust console; credentials come from backend environment."""
