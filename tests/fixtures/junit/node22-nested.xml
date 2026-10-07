@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testcase name="standalone pass" time="0.0" classname="test"/>
+	<testsuite name="outer" time="0.0" disabled="0" errors="0" tests="2" failures="1" skipped="1" hostname="fixture">
+		<testcase name="suite pass" time="0.0" classname="test"/>
+		<testsuite name="inner" time="0.0" disabled="0" errors="0" tests="3" failures="1" skipped="2" hostname="fixture">
+			<testcase name="inner pass" time="0.0" classname="test"/>
+			<testcase name="inner skip" time="0.0" classname="test">
+				<skipped type="skipped" message="unavailable"/>
+			</testcase>
+			<testcase name="inner TODO" time="0.0" classname="test" failure="Expected values to be strictly equal:1 !== 2">
+				<skipped type="todo" message="pending"/>
+				<failure type="testCodeFailure" message="Expected values to be strictly equal:1 !== 2">
+[Error [ERR_TEST_FAILURE]: Expected values to be strictly equal:
+
+1 !== 2
+] {
+  code: 'ERR_TEST_FAILURE',
+  failureType: 'testCodeFailure',
+  cause: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  1 !== 2
+
+      at TestContext.&lt;anonymous> (file:///fixtures/node22-nested.test.mjs:9:60)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1047:25)
+      at Suite.processPendingSubtests (node:internal/test_runner/test:744:18)
+      at Test.postRun (node:internal/test_runner/test:1173:19)
+      at Test.run (node:internal/test_runner/test:1101:12)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:744:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+}
+				</failure>
+			</testcase>
+		</testsuite>
+	</testsuite>
+	<!-- tests 5 -->
+	<!-- suites 2 -->
+	<!-- pass 3 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 1 -->
+	<!-- todo 1 -->
+	<!-- duration_ms 0 -->
+</testsuites>

@@ -35,6 +35,7 @@ class BackendScm:
         epoch: int,
         policy_digest: str,
         actor: str = "airflow-worker",
+        source_blueprint_digest: str | None = None,
     ) -> None:
         self.autonomous_evidence: dict | None = None
         self.repo = repo
@@ -45,6 +46,7 @@ class BackendScm:
         self.epoch = epoch
         self.policy_digest = policy_digest
         self.actor = actor
+        self.source_blueprint_digest = source_blueprint_digest
         if not self.backend_url:
             raise StageError("policy", "managed GitHub SCM requires SWF_BACKEND_URL")
         if len(self.backend_token) < 32 or any(c.isspace() for c in self.backend_token):
@@ -53,6 +55,19 @@ class BackendScm:
             raise StageError("policy", "managed GitHub SCM requires a Factory Cell policy digest")
 
     def fetch_issue(self, ref: str) -> Issue:
+        if ref.startswith("linear_"):
+            value = self._post(
+                "/scm/linear-source",
+                {
+                    **self._identity("linear-source-read"),
+                    "ref": ref,
+                    "blueprint_digest": self.source_blueprint_digest,
+                },
+            )
+            try:
+                return Issue.model_validate(value)
+            except Exception as error:
+                raise StageError("scm", "backend returned invalid accepted Linear source") from error
         if not ref.strip().isdigit():
             return parse_issue_file(Path(ref))
         value = self._post("/scm/issue", {"ref": ref.strip(), "base_branch": self.base_branch})

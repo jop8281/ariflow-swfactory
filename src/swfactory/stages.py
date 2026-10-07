@@ -596,35 +596,75 @@ def crabbox_command(provider: str, junit: str, test_cmd: str) -> str:
 
 def _parse_junit(xml_text: str) -> dict[str, int]:
     root = ET.fromstring(xml_text)
+    summary_keys = ("tests", "failures", "errors", "skipped")
+    outcomes = ("passed", "failed", "errors", "skipped")
+    containers = {"testsuite", "testsuites"}
+    statuses = {"failure", "error", "skipped"}
+    evidence_tags = containers | statuses | {"testcase"}
 
     def local_name(element: ET.Element) -> str:
         return element.tag.rsplit("}", 1)[-1]
 
-    if local_name(root) == "testsuite":
-        suites = [root]
-    elif local_name(root) == "testsuites":
-        # Count top-level aggregates once. ``iter`` double-counts nested suite totals.
-        suites = [element for element in root if local_name(element) == "testsuite"]
-    else:
-        suites = []
-    if not suites:
-        raise ValueError("JUnit report contains no testsuite")
-    total = failed = errors = skipped = 0
-    for s in suites:
-        total += int(s.get("tests", 0))
-        failed += int(s.get("failures", 0))
-        errors += int(s.get("errors", 0))
-        skipped += int(s.get("skipped", 0))
-    if total <= 0 or min(failed, errors, skipped) < 0:
-        raise ValueError("JUnit report contains invalid test counts")
-    if failed + errors + skipped > total:
-        raise ValueError("JUnit report result counts exceed its test count")
-    return {
-        "passed": max(total - failed - errors - skipped, 0),
-        "failed": failed,
-        "errors": errors,
-        "skipped": skipped,
-    }
+    def count(element: ET.Element) -> tuple[dict[str, int], dict[str, int]]:
+        is_case = local_name(element) == "testcase"
+        allowed = statuses if is_case else containers | {"testcase"}
+        children = []
+        for child in element:
+            if local_name(child) in allowed:
+                children.append(child)
+            elif any(local_name(descendant) in evidence_tags for descendant in child.iter()):
+                raise ValueError("JUnit report contains misplaced test evidence")
+
+        if is_case:
+            if any(
+                local_name(descendant) in evidence_tags
+                for child in children
+                for descendant in child.iter()
+                if descendant is not child
+            ):
+                raise ValueError("JUnit testcase contains nested test evidence")
+            present = {local_name(child) for child in children}
+            if (statuses & element.attrib.keys()) - present or {"failure", "error"} <= present:
+                raise ValueError("JUnit testcase contains ambiguous outcomes")
+            failed, errors, skipped = (int(tag in present) for tag in ("failure", "error", "skipped"))
+            raw = {"tests": 1, "failures": failed, "errors": errors, "skipped": skipped}
+            # Node TODO failures also carry <skipped>; one failed case is not two tests.
+            result = {
+                "passed": int(not present),
+                "failed": failed,
+                "errors": errors,
+                "skipped": int(skipped and not failed and not errors),
+            }
+            return result, raw
+
+        declared = {key: int(element.attrib[key]) for key in summary_keys if key in element.attrib}
+        if any(value < 0 for value in declared.values()):
+            raise ValueError("JUnit report contains invalid test counts")
+        if children:
+            parsed = [count(child) for child in children]
+            result = {key: sum(counts[key] for counts, _ in parsed) for key in outcomes}
+            raw = {key: sum(summary[key] for _, summary in parsed) for key in summary_keys}
+            # Reporters summarize either all descendant cases or immediate children, as Node does.
+            direct = {key: sum(bool(summary[key]) for _, summary in parsed) for key in summary_keys}
+            direct["tests"] = len(children)
+            if not any(all(summary[key] == value for key, value in declared.items()) for summary in (raw, direct)):
+                raise ValueError("JUnit summary disagrees with its test evidence")
+            return result, raw
+
+        if local_name(element) != "testsuite" or "tests" not in declared:
+            raise ValueError("JUnit report contains no test evidence")
+        raw = {key: declared.get(key, 0) for key in summary_keys}
+        total, failed, errors, skipped = (raw[key] for key in summary_keys)
+        if failed + errors + skipped > total:
+            raise ValueError("JUnit report result counts exceed its test count")
+        return dict(zip(outcomes, (total - failed - errors - skipped, failed, errors, skipped), strict=True)), raw
+
+    if local_name(root) not in containers:
+        raise ValueError("JUnit report contains no testsuite or testsuites root")
+    result, _ = count(root)
+    if sum(result.values()) <= 0:
+        raise ValueError("JUnit report contains no tests")
+    return result
 
 
 def _ensure_clean(ctx: Ctx, phase: str, *, allow_artifacts: bool = False) -> None:

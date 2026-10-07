@@ -375,6 +375,31 @@ def test_a_junit_file_that_cannot_be_read_never_reports_a_passing_suite(
     assert "1 failed" in output  # the failure text a fix prompt gets survives
 
 
+@pytest.mark.parametrize("fixture", ["node22-standalone.xml", "node22-suite.xml", "node22-nested.xml"])
+def test_junit_todo_failure_blocks_a_zero_exit_test_command(tmp_path: Path, fixture: str) -> None:
+    report = (ROOT / "tests" / "fixtures" / "junit" / fixture).read_text()
+    sb = FakeSandbox({"factory.toml": FACTORY_TOML, JUNIT: report})
+
+    result, _ = run_tests(ctx_on(tmp_path, sb))
+
+    assert result.exit_code == 0
+    assert result.report_valid is True
+    assert result.junit_path == JUNIT
+    assert result.failed == 1
+    assert result.ok is False
+
+
+def test_junit_contradictory_summary_blocks_a_zero_exit_test_command(tmp_path: Path) -> None:
+    report = '<testsuite tests="1" failures="0"><testcase><failure/></testcase></testsuite>'
+    sb = FakeSandbox({"factory.toml": FACTORY_TOML, JUNIT: report})
+
+    result, _ = run_tests(ctx_on(tmp_path, sb))
+
+    assert result.report_valid is False
+    assert result.junit_path is None
+    assert result.ok is False
+
+
 # ================================================================ 2. agent failure
 
 

@@ -423,7 +423,25 @@ class Factory:
         if not self.capabilities()["mutation_ready"]:
             raise Refused(503, "backend is draining or not mutation-ready")
         line = self._line(text(body, "line"))
-        issues = body.get("issues")
+        linear_request = None
+        if line.work_source is not None:
+            from pydantic import ValidationError
+
+            from swfactory.linear_intake import LinearWorkRequest
+
+            if "issues" in body or "airflow_run_id" in body:
+                raise ValueError("Linear work orders require work_source, without issues or scheduled run identity")
+            try:
+                linear_request = LinearWorkRequest.model_validate(body.get("work_source"))
+            except ValidationError:
+                raise ValueError(
+                    "work_source must be a versioned Linear UUID, intent digest and stable attempt"
+                ) from None
+            issues = [linear_request.issue_ref(line.work_source)]
+        elif "work_source" in body:
+            raise ValueError("the installed blueprint does not enable Linear work sources")
+        else:
+            issues = body.get("issues")
         if not isinstance(issues, list) or not issues or len(issues) > 1000:
             raise ValueError("issues must contain between 1 and 1000 references")
         if any(not isinstance(i, str) or not i.strip() or len(i) > 128 for i in issues):
@@ -460,9 +478,43 @@ class Factory:
 
         conf: dict[str, Any] = {"issues": issues, **({"targets": targets} if targets else {})}
         jobs = list(line.jobs(conf))
+        if linear_request is not None and any(job["repo"] != self.repo for job in jobs):
+            raise Refused(403, "Linear targets must match the configured backend publication repository")
         priority = _priority(body.get("priority"))
         order = self._work_order(line, jobs, conf, actor, priority, airflow_run_id)
         submission_id = _work_id(order["request_digest"], order["desired_epochs"])
+        if linear_request is not None:
+            from swfactory.linear_intake import accepted_source
+            from swfactory.linear_source import LinearSource, LinearSourceError
+
+            source = line.work_source
+            assert source is not None
+            order["blueprint"]["identity"] = policy_digest_for_mapping(line.model_dump(mode="json"))
+            order["work_source"] = {**source.model_dump(), **linear_request.model_dump()}
+            order["request_digest"] = request_digest(
+                {
+                    "work_source": order["work_source"],
+                    "blueprint": order["blueprint"],
+                    "jobs": order["jobs"],
+                }
+            )
+            submission_id = "submit_linear_" + order["request_digest"].removeprefix("sha256:")
+            order["dag_run_id"] = "swf__" + submission_id.removeprefix("submit_")
+            if self.control.admission.state_of(submission_id) is not None:
+                self._deliver(submission_id)
+                self.resume_dispatch()
+                return self._work_document(submission_id)
+            try:
+                preview = LinearSource(
+                    os.environ.get("SWF_LINEAR_API_KEY", ""),
+                    source.workspace_id,
+                    source.project_id,
+                ).resolve_for_admission(linear_request.issue_id)
+            except LinearSourceError as error:
+                raise Refused(422, str(error)) from None
+            if preview.intent_digest != linear_request.intent_digest:
+                raise Refused(409, "Linear intent changed; preview the source and explicitly accept its new digest")
+            order["accepted_source"] = accepted_source(preview)
         # One capacity unit per Factory Cell the order will activate, declared before anything is
         # activated, so every affected repository is counted and no sibling can be released early.
         members = [MemberSpec(int(job["job_idx"]), str(job["repo"]), identity_for_job(job).stable_id()) for job in jobs]
@@ -476,8 +528,15 @@ class Factory:
                 priority=priority,
             )
         except WorkOrderConflict as error:
+            if linear_request is not None:
+                # Another delivery persisted the same execution identity while this one read Linear.
+                # Its accepted snapshot and actor win; a retry cannot overwrite either.
+                self._deliver(submission_id)
+                return self._work_document(submission_id)
             raise Refused(409, str(error)) from error
         if decision.reason == "duplicate_terminal":
+            if linear_request is not None:
+                return self._work_document(submission_id)
             # The Cells are not terminal (their epochs are part of the work id), so this order was
             # closed by a cancellation or a compensated activation. Saying so beats silently
             # answering with a run that will never exist.
@@ -487,6 +546,8 @@ class Factory:
             # before capacity frees up loses nothing. Pump the outbox on the way out: a backend that
             # just came back may be holding commands nobody has asked about since.
             self.resume_dispatch()
+            if linear_request is not None and decision.state == "queued":
+                return self._work_document(submission_id)
             return {
                 "state": decision.state,
                 "submission_id": submission_id,
@@ -1070,6 +1131,9 @@ class Factory:
             "blueprint": {"name": line_name, "resolved": True},
             "url": self.airflow_url + path + "/runs/" + urllib.parse.quote(run_id, safe=""),
         }
+        if "work_source" in order:
+            document["work_source"] = order["work_source"]
+            document["accepted_source_digest"] = order["accepted_source"]["intent_digest"]
         if state == "bound":
             # The same rows a dispatched run reads from its conf, for the run that had no conf to
             # read: a scheduled run binds its jobs from this answer (``cell_runtime.bind_jobs``).

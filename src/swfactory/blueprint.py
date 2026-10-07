@@ -15,12 +15,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
 from swfactory.agent import POLICIES
 from swfactory.approval_policy import GateMode, declared_mode
 from swfactory.config import FACTORY_ROOT, Config
 from swfactory.intake_governance import ScheduleLimits
+from swfactory.linear_intake import LinearWorkSource
 from swfactory.paths import (
     normalize_absolute_posix_path,
     normalize_relative_path,
@@ -40,7 +41,8 @@ GATE_STAGES: tuple[str, ...] = ("intent", "plan")
 NAME_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$"
 # TOML top-level tables the schema knows; anything else is a typo, not an extension point.
 _SECTIONS = frozenset(
-    ("blueprint", "trigger", "targets", "stages", "gates", "limits", "policy", "review") + ("sandbox", "deliver")
+    ("blueprint", "trigger", "targets", "stages", "gates", "limits", "policy", "review")
+    + ("sandbox", "deliver", "work_source")
 )
 # ``blueprints/<name>.toml`` file names that map to a different ``blueprint.name``.
 _FILE_ALIASES = {DEFAULT_BLUEPRINT: "default"}
@@ -254,6 +256,14 @@ class Blueprint(BaseModel):
     review: ReviewSpec = Field(default_factory=ReviewSpec)
     sandbox: SandboxSpec = Field(default_factory=SandboxSpec)
     labels: list[str] = Field(default_factory=lambda: ["factory", "agent-authored"])
+    work_source: LinearWorkSource | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        document = handler(self)
+        if self.work_source is None:
+            document.pop("work_source", None)
+        return document
 
     # ------------------------------------------------------------ validation
 
@@ -261,6 +271,11 @@ class Blueprint(BaseModel):
     def _shape(self) -> Blueprint:
         self._check_order()
         self._check_gates()
+        if self.work_source is not None:
+            if self.trigger.kind != "manual" or self.trigger.issues or self.trigger.backlog is not None:
+                raise ValueError("Linear intake requires an explicit manual work order")
+            if {gate.after for gate in self.gates if gate.mode == "human"} != {"intent", "plan"}:
+                raise ValueError("Linear intake requires human intent and plan gates")
         self.schedule_limits()  # a naive origin or a non-positive bound refuses to load, not to run
         if self.limits.budget_usd_per_stage > self.limits.budget_usd:
             raise ValueError("limits.budget_usd_per_stage must not exceed limits.budget_usd")
@@ -483,7 +498,7 @@ def _flatten(data: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(blueprint, dict):
         raise ValueError("[blueprint] must be a table")
     out: dict[str, Any] = dict(blueprint)
-    for key in ("trigger", "targets", "gates", "limits", "policy", "review", "sandbox"):
+    for key in ("trigger", "targets", "gates", "limits", "policy", "review", "sandbox", "work_source"):
         if key in data:
             out[key] = data[key]
     stages = data.get("stages", {})

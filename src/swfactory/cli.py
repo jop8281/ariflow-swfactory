@@ -38,6 +38,58 @@ from swfactory.stages import Approver, Ctx, cli_approver, run_pipeline, setup
 app = typer.Typer(help="AI-native software factory.", no_args_is_help=True, add_completion=False)
 
 
+@app.command("linear-preview")
+def linear_preview_cmd(
+    issue_id: Annotated[str, typer.Argument(help="immutable Linear issue UUID")],
+    workspace_id: Annotated[str, typer.Option(help="expected Linear workspace UUID")],
+    project_id: Annotated[str, typer.Option(help="expected Linear project UUID")],
+) -> None:
+    """Read Linear source text on a trusted controller; does not admit or schedule work."""
+    import os
+
+    from swfactory.linear_source import LinearSource, LinearSourceError
+
+    try:
+        source = LinearSource(os.environ.get("SWF_LINEAR_API_KEY", ""), workspace_id, project_id)
+        preview = source.preview(issue_id)
+    except LinearSourceError as error:
+        typer.echo(f"linear preview: {error}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(json.dumps(preview.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+
+
+@app.command("linear-submit")
+def linear_submit_cmd(
+    issue_id: Annotated[str, typer.Argument(help="immutable Linear issue UUID")],
+    line: Annotated[str, typer.Option(help="installed Linear-enabled blueprint")],
+    intent_digest: Annotated[str, typer.Option(help="accepted digest from linear-preview")],
+    attempt: Annotated[str, typer.Option(help="stable attempt identity; reuse it for every retry")] = "initial",
+) -> None:
+    """Submit accepted Linear intent through the backend; Airflow schedules the work."""
+    from pydantic import ValidationError
+
+    from swfactory.cell_callback import CellCallbackError, post
+    from swfactory.linear_intake import LinearWorkRequest
+
+    try:
+        source = LinearWorkRequest(
+            schema_version=1,
+            kind="linear",
+            issue_id=issue_id,
+            intent_digest=intent_digest,
+            attempt=attempt,
+        )
+    except ValidationError:
+        typer.echo("linear submit: invalid issue UUID, intent digest or attempt identity", err=True)
+        raise typer.Exit(2) from None
+    try:
+        receipt = post("/work-orders", {"line": line, "work_source": source.model_dump()})
+    except CellCallbackError as error:
+        typer.echo(f"linear submit: {error}", err=True)
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True))
+
+
 @app.command("backend")
 def backend_serve(host: str = "127.0.0.1", port: int = 8082) -> None:
     """Serve the factory API for the Rust console; credentials come from backend environment."""
