@@ -5,8 +5,9 @@ Track product work in the [WorldGen Linear project](https://linear.app/yossi-zoz
 The factory baseline inspected for this setup is `d6c472564069021c6c8e1d16a13f37e6d77b5081`.
 Pin the deployed revision and record any later upgrade separately.
 
-Linear owns product priorities and dependencies. GitHub holds code and reviewable PRs.
-An admitted factory work order must have the GitHub identity expected by the existing operations layer.
+Linear is the sole issue tracker: it owns work orders, priorities, dependencies, and execution evidence.
+GitHub holds code and reviewable PRs. Do not create GitHub issues or issue mirrors.
+The existing GitHub-based admission path does not meet this policy; direct Linear intake is required.
 Airflow remains the only managed lifecycle scheduler. The backend owns Cell mutations and publication.
 People approve intent, plan, and merge decisions.
 
@@ -24,6 +25,8 @@ Qualification must establish:
 
 - A trusted backend and Airflow deployment with successful doctor checks and managed-worker wiring.
 - An installed operator client and a context bound to the product repository.
+- Direct Linear intake under [YOS-104](https://linear.app/yossi-zozo123/issue/YOS-104),
+  with an immutable Linear UUID as the work-order identity and no GitHub issue creation.
 - A product target contract with fresh JUnit evidence and protected engine and governance paths.
 - Bun for product dependency installation and commands, with Node available for the existing
   deterministic snippet sandbox. PR #79 in WorldGen introduces this tooling setup.
@@ -38,8 +41,9 @@ No label should admit work until qualification has passed.
 
 A coding work order states the originator's intent, observable acceptance criteria, target,
 allowed files, constraints, and verification command. Preserve the originator's intent verbatim.
-Link its Linear task, GitHub identity, and resulting PR. Inspect existing links before creating a
-replacement identity. The initial setup uses explicit links; native Linear intake is not implemented.
+Link the Linear task to its resulting GitHub PR. Inspect existing Linear tasks before creating another.
+Native Linear intake is not implemented at the inspected baseline. YOS-104 must implement it through
+the existing operations layer, preserving retry and duplicate-event behavior without GitHub issue mirrors.
 
 | Linear status | Evidence |
 | --- | --- |
@@ -55,17 +59,12 @@ issue. A failed or rejected run must not become Done. Updating Linear does not a
 
 ## Admission and release
 
-Once a product route is installed and qualified, submit through the existing harness wrapper:
+Managed admission remains blocked until the product route and direct Linear intake are implemented
+and qualified. The baseline harness accepts a GitHub issue number; do not pass a Linear identifier
+to that argument or create a GitHub issue to satisfy it. YOS-104 must define and verify the supported
+Linear admission command before this runbook can publish a runnable template.
 
-```sh
-scripts/swf_harness.sh codex codex-20261006-worldgen \
-  --blueprint <installed-worldgen-route> --issue <github-issue-number> \
-  --target jop8281/zozo123-genworld
-```
-
-This is a command template. The product route is not installed by this runbook.
 Keep session identity stable for retries; independent sessions use distinct factory IDs.
-The issue argument is a GitHub identity, not a Linear identifier.
 Read exact intent and plan artifacts before obtaining the human's explicit gate decisions.
 
 Retain Cell and run identities, deployed factory revision, blueprint and target, sandbox boundary,
