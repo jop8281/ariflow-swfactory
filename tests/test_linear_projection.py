@@ -194,8 +194,12 @@ def test_attachment_lost_response_recovers_after_journal_restart(monkeypatch, tm
     remote = None
     writes = []
 
+    accepted, source_ref = accepted_document()
+
     def handler(payload):
         nonlocal remote
+        if payload["query"] == module.ISSUE_QUERY:
+            return source_document()
         if payload["query"] == module.ATTACH:
             writes.append(payload["variables"]["input"])
             remote = row()
@@ -214,7 +218,7 @@ def test_attachment_lost_response_recovers_after_journal_restart(monkeypatch, tm
     with pytest.raises(ProjectionTransportError):
         journal.execute(
             ref,
-            lambda: asdict(transport.attach_pr(ISSUE, URL, HEAD)),
+            lambda: asdict(transport.attach_accepted_pr(accepted, source_ref, URL, HEAD)),
             replay_safe=True,
             intent_digest="sha256:" + "c" * 64,
         )
@@ -257,8 +261,12 @@ def test_status_lost_response_recovers_from_remote_state_without_second_write(mo
     current = issue_state()
     writes = []
 
+    accepted, source_ref = accepted_document()
+
     def handler(payload):
         nonlocal current
+        if payload["query"] == module.ISSUE_QUERY:
+            return source_document()
         if "FactoryProjectionState(" in payload["query"]:
             return state_document()
         if "FactoryProjectionIssueState(" in payload["query"]:
@@ -275,7 +283,7 @@ def test_status_lost_response_recovers_from_remote_state_without_second_write(mo
     with pytest.raises(ProjectionTransportError):
         journal.execute(
             ref,
-            lambda: asdict(transport.update_issue_state(WORKSPACE, ISSUE, TEAM, STATE, "started")),
+            lambda: asdict(transport.update_accepted_issue_state(accepted, source_ref, STATE, "started")),
             replay_safe=True,
             intent_digest="sha256:" + "d" * 64,
         )
