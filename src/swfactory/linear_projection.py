@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from swfactory.linear_source import ENDPOINT, MAX_RESPONSE_BYTES
+from swfactory.linear_intake import source_issue
+from swfactory.linear_source import ENDPOINT, ISSUE_QUERY, MAX_RESPONSE_BYTES, LinearPreview, parse_preview
 
 ATTACH = """mutation FactoryPRAttachment($input: AttachmentCreateInput!) {
   attachmentCreate(input: $input) { success attachment { id url metadata issue { id } } }
@@ -217,3 +218,21 @@ class LinearProjectionTransport:
         if receipt.state_id != state_id or receipt.state_type != state_type:
             raise ProjectionTransportError("Linear issue state write differs from requested state")
         return receipt
+
+    def validate_accepted_source(self, document: dict[str, Any], expected_ref: str) -> LinearPreview:
+        try:
+            source_issue(document, expected_ref=expected_ref)
+            snapshot = document["snapshot"]
+            current = parse_preview(
+                {"data": self._request(ISSUE_QUERY, {"id": snapshot["issue_id"]})},
+                workspace_id=snapshot["workspace_id"],
+                project_id=snapshot["project_id"],
+                issue_id=snapshot["issue_id"],
+            )
+        except (ValueError, KeyError, TypeError):
+            raise ProjectionTransportError("Linear projection source failed identity validation") from None
+        if current.intent_digest != document["intent_digest"]:
+            raise ProjectionTransportError("Linear accepted intent changed before projection")
+        if current.archived_at or current.state_type in {"canceled", "duplicate"}:
+            raise ProjectionTransportError("Linear projection source is archived or withdrawn")
+        return current

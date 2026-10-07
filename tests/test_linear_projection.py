@@ -295,3 +295,64 @@ def test_status_lost_response_recovers_from_remote_state_without_second_write(mo
         assert len(writes) == 1
     finally:
         restarted.close()
+
+
+def source_document():
+    return {
+        "data": {
+            "organization": {"id": WORKSPACE, "urlKey": "factory-fixture"},
+            "issue": {
+                "id": ISSUE,
+                "identifier": "YOS-134",
+                "url": "https://linear.app/factory-fixture/issue/YOS-134/projection",
+                "title": "Preserve accepted work",
+                "description": "Exact acceptance criteria",
+                "updatedAt": "2026-10-07T07:00:00Z",
+                "archivedAt": None,
+                "team": {"id": TEAM},
+                "project": {"id": OTHER},
+                "state": {"type": "unstarted"},
+            },
+        }
+    }
+
+
+def accepted_document():
+    from swfactory.linear_intake import accepted_source
+    from swfactory.linear_source import parse_preview
+
+    preview = parse_preview(source_document(), workspace_id=WORKSPACE, project_id=OTHER, issue_id=ISSUE)
+    return accepted_source(preview), "linear_" + WORKSPACE.replace("-", "") + "_" + ISSUE.replace("-", "")
+
+
+def test_source_validation_preserves_intent_across_status_change(monkeypatch):
+    accepted, ref = accepted_document()
+    response = source_document()
+    response["data"]["issue"]["state"]["type"] = "started"
+    serve(monkeypatch, lambda p: response)
+    current = LinearProjectionTransport(KEY).validate_accepted_source(accepted, ref)
+    assert current.intent_digest == accepted["intent_digest"]
+    assert current.state_type == "started"
+
+
+@pytest.mark.parametrize("field", ["title", "description", "team", "project", "workspace"])
+def test_changed_source_identity_or_intent_refuses_projection(monkeypatch, field):
+    accepted, ref = accepted_document()
+    response = source_document()
+    if field == "workspace":
+        response["data"]["organization"]["id"] = TEAM
+    elif field in {"team", "project"}:
+        response["data"]["issue"][field]["id"] = STATE
+    else:
+        response["data"]["issue"][field] = "changed"
+    serve(monkeypatch, lambda p: response)
+    with pytest.raises(ProjectionTransportError):
+        LinearProjectionTransport(KEY).validate_accepted_source(accepted, ref)
+
+
+def test_corrupt_accepted_snapshot_never_reaches_network(monkeypatch):
+    accepted, ref = accepted_document()
+    accepted["snapshot"]["title"] = "tampered"
+    serve(monkeypatch, lambda p: pytest.fail("corrupt snapshot reached remote"))
+    with pytest.raises(ProjectionTransportError):
+        LinearProjectionTransport(KEY).validate_accepted_source(accepted, ref)
