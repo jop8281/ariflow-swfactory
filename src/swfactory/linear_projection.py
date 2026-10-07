@@ -13,10 +13,10 @@ from uuid import UUID
 from swfactory.linear_source import ENDPOINT, MAX_RESPONSE_BYTES
 
 ATTACH = """mutation FactoryPRAttachment($input: AttachmentCreateInput!) {
-  attachmentCreate(input: $input) { success attachment { id url issue { id } } }
+  attachmentCreate(input: $input) { success attachment { id url metadata issue { id } } }
 }"""
 OBSERVE = """query FactoryPRAttachmentObservation($url: String!) {
-  attachmentsForURL(url: $url) { nodes { id url issue { id } } pageInfo { hasNextPage } }
+  attachmentsForURL(url: $url) { nodes { id url metadata issue { id } } pageInfo { hasNextPage } }
 }"""
 
 
@@ -43,11 +43,18 @@ def _pr_url(value: str) -> str:
     return value
 
 
+def _head(value: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None:
+        raise ProjectionTransportError("Projection requires an exact candidate head")
+    return value
+
+
 @dataclass(frozen=True)
 class AttachmentReceipt:
     attachment_id: str
     issue_id: str
     url: str
+    head_sha: str
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -90,15 +97,18 @@ class LinearProjectionTransport:
             raise ProjectionTransportError("Linear projection response is invalid") from None
 
     @staticmethod
-    def _receipt(row: object, issue_id: str, url: str) -> AttachmentReceipt:
+    def _receipt(row: object, issue_id: str, url: str, head_sha: str) -> AttachmentReceipt:
         if not isinstance(row, dict) or not isinstance(row.get("issue"), dict):
             raise ProjectionTransportError("Linear attachment receipt is invalid")
         if row["issue"].get("id") != issue_id or row.get("url") != url:
             raise ProjectionTransportError("Linear attachment receipt identity differs")
-        return AttachmentReceipt(_uuid(row.get("id")), issue_id, url)
+        if not isinstance(row.get("metadata"), dict) or row["metadata"].get("headSha") != head_sha:
+            raise ProjectionTransportError("Linear attachment candidate head differs")
+        return AttachmentReceipt(_uuid(row.get("id")), issue_id, url, head_sha)
 
-    def observe_attachment(self, issue_id: str, url: str) -> AttachmentReceipt | None:
+    def observe_attachment(self, issue_id: str, url: str, head_sha: str) -> AttachmentReceipt | None:
         issue_id, url = _uuid(issue_id), _pr_url(url)
+        _head(head_sha)
         data = self._request(OBSERVE, {"url": url})
         connection = data.get("attachmentsForURL")
         if (
@@ -114,12 +124,11 @@ class LinearProjectionTransport:
         matches = [row for row in nodes if row["issue"].get("id") == issue_id]
         if len(matches) > 1:
             raise ProjectionTransportError("Linear attachment observation is ambiguous")
-        return None if not matches else self._receipt(matches[0], issue_id, url)
+        return None if not matches else self._receipt(matches[0], issue_id, url, head_sha)
 
     def attach_pr(self, issue_id: str, url: str, head_sha: str) -> AttachmentReceipt:
         issue_id, url = _uuid(issue_id), _pr_url(url)
-        if not isinstance(head_sha, str) or re.fullmatch(r"[0-9a-f]{40}", head_sha) is None:
-            raise ProjectionTransportError("Projection requires an exact candidate head")
+        _head(head_sha)
         data = self._request(
             ATTACH,
             {
@@ -134,4 +143,24 @@ class LinearProjectionTransport:
         result = data.get("attachmentCreate")
         if not isinstance(result, dict) or result.get("success") is not True:
             raise ProjectionTransportError("Linear attachment write is unverified")
-        return self._receipt(result.get("attachment"), issue_id, url)
+        return self._receipt(result.get("attachment"), issue_id, url, head_sha)
+
+    def resolve_state(self, workspace_id: str, team_id: str, state_id: str, state_type: str) -> str:
+        workspace_id, team_id, state_id = _uuid(workspace_id), _uuid(team_id), _uuid(state_id)
+        if state_type not in {"started", "completed"}:
+            raise ProjectionTransportError("Projection state category is unsupported")
+        data = self._request(
+            """query FactoryProjectionState($id: String!) {
+              organization { id }
+              workflowState(id: $id) { id type team { id } }
+            }""",
+            {"id": state_id},
+        )
+        organization, state = data.get("organization"), data.get("workflowState")
+        if not isinstance(organization, dict) or organization.get("id") != workspace_id:
+            raise ProjectionTransportError("Linear workflow workspace differs")
+        if not isinstance(state, dict) or not isinstance(state.get("team"), dict):
+            raise ProjectionTransportError("Linear workflow state is invalid")
+        if state.get("id") != state_id or state.get("type") != state_type or state["team"].get("id") != team_id:
+            raise ProjectionTransportError("Linear workflow identity or category differs")
+        return state_id

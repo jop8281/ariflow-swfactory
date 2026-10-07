@@ -17,7 +17,7 @@ KEY = "fixture_not_a_real_key"
 
 
 def row(issue=ISSUE):
-    return {"id": ATTACHMENT, "url": URL, "issue": {"id": issue}}
+    return {"id": ATTACHMENT, "url": URL, "issue": {"id": issue}, "metadata": {"headSha": HEAD}}
 
 
 def serve(monkeypatch, handler):
@@ -45,7 +45,7 @@ def test_duplicate_write_and_lost_response_observation_use_same_issue_url(monkey
     transport = LinearProjectionTransport(KEY)
     first = transport.attach_pr(ISSUE, URL, HEAD)
     assert transport.attach_pr(ISSUE, URL, HEAD) == first
-    assert transport.observe_attachment(ISSUE, URL) == first
+    assert transport.observe_attachment(ISSUE, URL, HEAD) == first
     assert (
         writes == [{"issueId": ISSUE, "url": URL, "title": "Factory pull request", "metadata": {"headSha": HEAD}}] * 2
     )
@@ -56,7 +56,7 @@ def test_duplicate_write_and_lost_response_observation_use_same_issue_url(monkey
 def test_incomplete_or_ambiguous_observation_refuses(monkeypatch, nodes, more):
     serve(monkeypatch, lambda p: {"data": {"attachmentsForURL": {"nodes": nodes, "pageInfo": {"hasNextPage": more}}}})
     with pytest.raises(ProjectionTransportError):
-        LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL)
+        LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL, HEAD)
 
 
 def test_missing_attachment_is_absent_only_after_complete_observation(monkeypatch):
@@ -64,7 +64,7 @@ def test_missing_attachment_is_absent_only_after_complete_observation(monkeypatc
         monkeypatch,
         lambda p: {"data": {"attachmentsForURL": {"nodes": [row(OTHER)], "pageInfo": {"hasNextPage": False}}}},
     )
-    assert LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL) is None
+    assert LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL, HEAD) is None
 
 
 @pytest.mark.parametrize(
@@ -98,4 +98,49 @@ def test_redirect_is_refused():
 def test_null_page_info_is_refused(monkeypatch):
     serve(monkeypatch, lambda p: {"data": {"attachmentsForURL": {"nodes": [], "pageInfo": None}}})
     with pytest.raises(ProjectionTransportError):
-        LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL)
+        LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL, HEAD)
+
+
+def test_attachment_observation_refuses_another_candidate_head(monkeypatch):
+    stale = row()
+    stale["metadata"] = {"headSha": "b" * 40}
+    serve(
+        monkeypatch, lambda p: {"data": {"attachmentsForURL": {"nodes": [stale], "pageInfo": {"hasNextPage": False}}}}
+    )
+    with pytest.raises(ProjectionTransportError, match="candidate head differs"):
+        LinearProjectionTransport(KEY).observe_attachment(ISSUE, URL, HEAD)
+
+
+WORKSPACE = "12345678-1234-4234-8234-123456789abc"
+TEAM = "42345678-1234-4234-8234-123456789abc"
+STATE = "72345678-1234-4234-8234-123456789abc"
+
+
+def state_document():
+    return {
+        "data": {
+            "organization": {"id": WORKSPACE},
+            "workflowState": {"id": STATE, "type": "started", "team": {"id": TEAM}},
+        }
+    }
+
+
+def test_workflow_state_resolves_exact_controller_configured_identity(monkeypatch):
+    serve(monkeypatch, lambda p: state_document())
+    assert LinearProjectionTransport(KEY).resolve_state(WORKSPACE, TEAM, STATE, "started") == STATE
+
+
+@pytest.mark.parametrize("field", ["workspace", "team", "state", "category"])
+def test_workflow_state_rejects_wrong_identity_or_category(monkeypatch, field):
+    response = state_document()
+    if field == "workspace":
+        response["data"]["organization"]["id"] = OTHER
+    elif field == "team":
+        response["data"]["workflowState"]["team"]["id"] = OTHER
+    elif field == "state":
+        response["data"]["workflowState"]["id"] = OTHER
+    else:
+        response["data"]["workflowState"]["type"] = "canceled"
+    serve(monkeypatch, lambda p: response)
+    with pytest.raises(ProjectionTransportError):
+        LinearProjectionTransport(KEY).resolve_state(WORKSPACE, TEAM, STATE, "started")
