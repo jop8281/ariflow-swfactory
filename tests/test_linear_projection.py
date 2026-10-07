@@ -184,3 +184,114 @@ def test_terminal_state_is_not_downgraded(monkeypatch, state_type):
     serve(monkeypatch, handler)
     with pytest.raises(ProjectionTransportError, match="Terminal"):
         LinearProjectionTransport(KEY).update_issue_state(WORKSPACE, ISSUE, TEAM, STATE, "started")
+
+
+def test_attachment_lost_response_recovers_after_journal_restart(monkeypatch, tmp_path):
+    from dataclasses import asdict
+
+    from swfactory.idempotency import MutationOutcome, OperationJournal, OperationRef
+
+    remote = None
+    writes = []
+
+    def handler(payload):
+        nonlocal remote
+        if payload["query"] == module.ATTACH:
+            writes.append(payload["variables"]["input"])
+            remote = row()
+            raise OSError("response lost after server commit")
+        return {
+            "data": {
+                "attachmentsForURL": {"nodes": [] if remote is None else [remote], "pageInfo": {"hasNextPage": False}}
+            }
+        }
+
+    serve(monkeypatch, handler)
+    transport = LinearProjectionTransport(KEY)
+    ref = OperationRef.build("cell_0769b1604171d921fa6d6ffa", 1, "linear_attachment", ISSUE, URL, HEAD)
+    database = tmp_path / "operations.sqlite3"
+    journal = OperationJournal(database)
+    with pytest.raises(ProjectionTransportError):
+        journal.execute(
+            ref,
+            lambda: asdict(transport.attach_pr(ISSUE, URL, HEAD)),
+            replay_safe=True,
+            intent_digest="sha256:" + "c" * 64,
+        )
+    assert journal.get(ref.key)["state"] == "in_doubt"
+    journal.close()
+    restarted = OperationJournal(database)
+    try:
+
+        def reconcile():
+            receipt = transport.observe_attachment(ISSUE, URL, HEAD)
+            return (
+                MutationOutcome("definitely_absent")
+                if receipt is None
+                else MutationOutcome("committed", asdict(receipt))
+            )
+
+        recovered = restarted.execute(
+            ref,
+            lambda: pytest.fail("attachment write repeated"),
+            replay_safe=True,
+            reconcile=reconcile,
+            intent_digest="sha256:" + "c" * 64,
+        )
+        assert recovered == {"attachment_id": ATTACHMENT, "issue_id": ISSUE, "url": URL, "head_sha": HEAD}
+        assert restarted.get(ref.key)["state"] == "committed"
+        assert len(writes) == 1
+        assert (
+            restarted.execute(ref, lambda: pytest.fail("committed effect repeated"), intent_digest="sha256:" + "c" * 64)
+            == recovered
+        )
+    finally:
+        restarted.close()
+
+
+def test_status_lost_response_recovers_from_remote_state_without_second_write(monkeypatch, tmp_path):
+    from dataclasses import asdict
+
+    from swfactory.idempotency import MutationOutcome, OperationJournal, OperationRef
+
+    current = issue_state()
+    writes = []
+
+    def handler(payload):
+        nonlocal current
+        if "FactoryProjectionState(" in payload["query"]:
+            return state_document()
+        if "FactoryProjectionIssueState(" in payload["query"]:
+            return {"data": {"issue": current}}
+        writes.append(payload["variables"])
+        current = issue_state(STATE, "started")
+        raise OSError("state committed but reply lost")
+
+    serve(monkeypatch, handler)
+    transport = LinearProjectionTransport(KEY)
+    ref = OperationRef.build("cell_0769b1604171d921fa6d6ffa", 1, "linear_state", ISSUE, STATE, HEAD)
+    database = tmp_path / "state.sqlite3"
+    journal = OperationJournal(database)
+    with pytest.raises(ProjectionTransportError):
+        journal.execute(
+            ref,
+            lambda: asdict(transport.update_issue_state(WORKSPACE, ISSUE, TEAM, STATE, "started")),
+            replay_safe=True,
+            intent_digest="sha256:" + "d" * 64,
+        )
+    journal.close()
+    restarted = OperationJournal(database)
+    try:
+        receipt = transport.observe_issue_state(ISSUE, TEAM)
+        assert receipt.state_id == STATE and receipt.state_type == "started"
+        result = restarted.execute(
+            ref,
+            lambda: pytest.fail("status write repeated"),
+            replay_safe=True,
+            reconcile=lambda: MutationOutcome("committed", asdict(receipt)),
+            intent_digest="sha256:" + "d" * 64,
+        )
+        assert result["state_id"] == STATE
+        assert len(writes) == 1
+    finally:
+        restarted.close()
