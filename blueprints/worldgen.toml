@@ -1,0 +1,71 @@
+# WorldGen pilot line: the work cells run on boat.dev VMs, the product sandbox provider on the
+# WorldGen side of the house; the islo chain is not required for this line. A FIFTH DAG whose
+# reason to exist is the same as `blueprints/toolset.toml`'s: `--sandbox boat` must be an
+# exercised path, not just a module.
+#
+# `[sandbox] kind = "boat"` selects `BoatSandbox` (`src/swfactory/boat.py`): create a small VM
+# (BOAT_API_KEY from the process environment only), wait until it is ready, clone the public
+# target itself, run every stage/test command over exec, and stop + wait for the archive on
+# teardown. The cell is created with `noEnv`, so no account credential reaches it; the scripted
+# agent is the agent of record because the claude credential has no path into a boat VM
+# (Config refuses agent=claude on boat until one exists).
+#
+# The target is the WorldGen repo itself: the `code/` package on the `stabilize/main`
+# integration branch, with Bun as the product runtime per the WorldGen-side factory contract.
+# The test command is owned by the target's own `factory.toml` under `code/` (the WorldGen
+# side's half of the pilot); this blueprint only picks the line:
+#
+#   BOAT_API_KEY=... uv run swfactory run --blueprint worldgen --issue <work order>
+#
+# Deliberately NOT the default: `blueprints/default.toml` (the `factory` line) stays on islo.
+# This one is experimental by construction, like the toolset line before it.
+
+[blueprint]
+name = "worldgen"            # DAG id and CLI name
+version = 1
+description = "WorldGen pilot line: work orders on boat.dev VMs, stabilize/main integration branch"
+
+[trigger]
+kind = "manual"              # manual | cron
+
+[[targets]]                  # >= 1; jobs per DAG run = len(conf.issues) x len(targets)
+repo = "jop8281/zozo123-genworld"
+dir = "code"                 # the one package: engine, WorldGen, CLIs, tests
+base_branch = "stabilize/main"   # the integration branch every WorldGen PR targets
+
+[stages]
+order = ["intent", "spec", "plan", "build_and_test", "review", "deliver"]   # == default.toml
+
+[[gates]]
+after = "intent"             # must be in stages.order
+artifact = "intent.md"       # shown in the ApprovalOperator body
+timeout_h = 1                # schema minimum; auto, so it is the backstop and not a wait
+assigned = []
+mode = "auto"                # an unattended pilot cell must finish on its own
+
+[[gates]]
+after = "plan"
+artifact = "plan.md"
+timeout_h = 2                # a real human gate, kept short: nobody babysits an experiment
+assigned = []
+mode = "human"
+
+[limits]                     # modest: this line is a proving ground, not a delivery line
+max_build_iterations = 2
+max_review_fixes = 1
+max_turns = 30
+budget_usd_per_stage = 1.0
+budget_usd = 4.0             # per JOB (issue x target)
+stage_timeout_h = 2
+max_parallel_jobs = 1        # one VM at a time while the provider is experimental
+
+[review]
+policy = "REVIEW.md"         # path in the factory repo rendered into the review prompt
+nit_cap = 3
+
+[sandbox]
+kind = "boat"                # -> BoatSandbox(boat_client_from_env()): boat.dev VM work cell
+ttl_s = 10800                # boat ttlSeconds; validator: > max(gates[].timeout_h) * 3600 = 7200
+
+[deliver]
+labels = ["factory", "agent-authored", "boat"]
