@@ -8,7 +8,7 @@
 [![Alpha](https://img.shields.io/badge/status-alpha-orange)](#status-and-verification)
 [![Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-D22128)](LICENSE)
 
-Bring a GitHub work order to an **atelier for software**. People and agents investigate and refine
+Bring a Linear work order to an **atelier for software**. People and agents investigate and refine
 the commissioned change inside bounded work cells. Apache Airflow owns the managed lifecycle;
 Factory Cell identity and epoch fence managed effects; the trusted control plane publishes a
 reviewable pull request with retained evidence. Human-approved lines wait for an operator;
@@ -502,7 +502,9 @@ acceptance standard and explain the remaining enforcement work.
 
 Contribute a coherent change with an explicit invariant, failure behavior, evidence, and a plan to
 remove superseded paths. Use the [current execution plan](docs/system-map.md#a-finish-line-that-can-be-demonstrated)
-and [open issues](https://github.com/zozo123/ariflow-swfactory/issues?q=is%3Aissue%20is%3Aopen) to choose work.
+and the connected Linear backlog to choose work. Track new work, defects, dependencies, and
+status in Linear. GitHub hosts code, pull requests, and review evidence. Submit Linear work through
+[the durable native intake](docs/native-linear-intake.md); native Linear Cells refuse GitHub issue creation.
 The earlier [execution plan #2040](https://github.com/zozo123/ariflow-swfactory/issues/2040) and
 [convergence roadmap #2022](https://github.com/zozo123/ariflow-swfactory/issues/2022) are retained as
 historical context. Licensed under [Apache 2.0](LICENSE).
