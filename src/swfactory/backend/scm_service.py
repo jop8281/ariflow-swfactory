@@ -47,6 +47,8 @@ def operation(factory: Factory, path: str, body: dict[str, Any]) -> Any:
         if type(limit) is not int:
             raise ValueError("limit must be an integer")
         return status(factory.state_root, limit=limit)
+    if path == "/scm/linear-source":
+        return _linear_source(factory, body)
     if not factory.repo:
         raise Refused(503, "SWF_REPO is not configured on the backend")
     base_branch = text({"base": body.get("base_branch", "main")}, "base")
@@ -71,6 +73,37 @@ def operation(factory: Factory, path: str, body: dict[str, Any]) -> Any:
     if path == "/scm/open-issue":
         return _open_issue(factory, base_branch, body)
     raise Refused(404, "unknown backend SCM operation")
+
+
+def _linear_source(factory: Factory, body: dict[str, Any]) -> dict[str, Any]:
+    from swfactory.durable_admission import request_digest
+    from swfactory.linear_intake import source_issue
+
+    ref = text(body, "ref", max_len=128)
+    cell = factory._cell(text(body, "cell_id"))
+    epoch = body.get("epoch")
+    if type(epoch) is not int or epoch != cell["epoch"]:
+        raise Refused(409, "accepted Linear source requires the current Cell epoch")
+    if body.get("policy_digest") != cell.get("policy_digest") or not cell.get("policy_digest"):
+        raise Refused(409, "accepted Linear source requires the current Cell policy")
+    if cell.get("issue") != ref:
+        raise Refused(403, "accepted Linear source differs from this Cell's issue")
+    airflow_binding(factory, str(cell["cell_id"]), epoch)
+    record = factory.control.admission.work_order_for_cell(str(cell["cell_id"]), epoch)
+    order = record.payload
+    if request_digest(order) != record.request_digest:
+        raise Refused(409, "accepted Linear work order failed integrity verification")
+    if "accepted_source" not in order:
+        raise Refused(409, "Cell has no accepted Linear source")
+    if body.get("blueprint_digest") != order["blueprint"]["identity"]:
+        raise Refused(409, "worker blueprint differs from the accepted Linear work order")
+    try:
+        issue = source_issue(order["accepted_source"], expected_ref=ref)
+    except ValueError:
+        raise Refused(409, "accepted Linear source failed integrity verification") from None
+    if order["accepted_source"]["intent_digest"] != order["work_source"]["intent_digest"]:
+        raise Refused(409, "accepted Linear source differs from its work order")
+    return issue.model_dump(mode="json")
 
 
 def _managed_identity(
@@ -365,6 +398,8 @@ def _publication_identity(repo: str, base: str, branch: str, content_digest: str
 
 def _open_issue(factory: Factory, base_branch: str, body: dict[str, Any]) -> dict[str, Any]:
     cell, security, operation_key, initiating_actor = _managed_identity(factory, body)
+    if str(cell.get("issue", "")).startswith("linear_"):
+        raise Refused(403, "Linear work cannot create GitHub issues; native incident projection is not implemented")
     title = text(body, "title", max_len=512)
     issue_body = body.get("body")
     labels = body.get("labels") or []

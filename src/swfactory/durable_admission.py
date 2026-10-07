@@ -563,6 +563,17 @@ class DurableAdmission:
             created_at=float(row["created_at"]),
         )
 
+    def work_order_for_cell(self, cell_id: str, epoch: int) -> WorkOrder:
+        """Recover the immutable source after worker restart, including terminal cleanup."""
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT work_id FROM admission_members WHERE cell_id=? AND cell_epoch=?",
+                (cell_id, epoch),
+            ).fetchall()
+        if len(rows) != 1:
+            raise ValueError("Cell epoch must belong to exactly one durable work order")
+        return self.work_order(str(rows[0]["work_id"]))
+
     def members(self, work_id: str) -> list[Member]:
         with self.lock:
             return self._members(work_id)

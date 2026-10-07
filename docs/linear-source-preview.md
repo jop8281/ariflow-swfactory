@@ -4,8 +4,9 @@
 preview. It requires an immutable issue UUID, the expected workspace UUID, and the expected
 project UUID. It preserves the title and description exactly and rejects mismatched identities.
 
-This is a bounded source adapter, not native managed admission. The [intake design in PR2361](https://github.com/zozo123/ariflow-swfactory/pull/2361)
-requires review before changing the protected backend and worker contracts.
+The preview is a read-only source adapter. The separate [native intake route](native-linear-intake.md)
+accepts its digest through the existing backend work-order API. Both are maintenance changes
+following the [intake design in PR2361](https://github.com/zozo123/ariflow-swfactory/pull/2361).
 
 ## Run on a trusted controller
 
@@ -56,14 +57,14 @@ required fields all refuse the read. Error messages do not echo server text. Kno
 patterns and a response containing the controller key are rejected; this check cannot detect
 every possible secret in free text, so a preview must not be passed directly to a work cell.
 
-## Still required for managed admission
+## Managed admission
 
 ```mermaid
 flowchart LR
-  L[Verified Linear source] -.reviewed migration.-> A[Existing backend operations and durable admission]
+  L[Verified Linear source] --> A[Existing backend operations and durable admission]
   A --> C[Cell identity and epoch fence]
   A --> D[Airflow dispatch outbox]
-  D -.pending snapshot wiring.-> W[Worker loads immutable accepted snapshot]
+  D --> W[Worker loads immutable accepted snapshot]
   W --> H[Human intent and plan gates]
   H --> T[Bounded edits and fresh evidence]
   T --> G[Backend publishes exact candidate PR]
@@ -72,16 +73,11 @@ flowchart LR
   M -.pending.-> F[Linear Done projection]
 ```
 
-The dotted steps remain unimplemented. The existing backend still accepts GitHub-style issue
-references, and workers still fetch issues through SCM. Do not pass a Linear UUID to that route,
-create a GitHub issue as a bridge, or use a preview as an admission receipt.
-
-The maintenance migration must add a versioned work-source reference and accepted snapshot to
-the existing work order, qualify old-worker rejection, and preserve duplicate/lost-response/
-restart recovery through the existing operation journal and admission outbox. It must also
-resolve dependency receipts, replace GitHub issue creation in maintenance paths, and journal
-Linear status and PR-link projections. Airflow remains the only lifecycle scheduler. No new
-poller, task queue, dispatch loop, approval authority or automatic merge is added here.
+Native intake stores the accepted snapshot in the existing work order and serves it to workers
+through the current Cell epoch. Use `linear-submit`, as described in the native intake document,
+instead of passing a Linear UUID as a legacy GitHub issue reference. The dotted projection steps
+remain unimplemented. Dependency receipts and Linear maintenance incidents also remain pending;
+dependent work and GitHub issue creation for native Cells refuse instead of falling back.
 
 Deployment qualification still requires actual backend credentials, provider and sandbox checks,
 doctor, managed-worker wiring, target contract qualification and effective promotion protection.

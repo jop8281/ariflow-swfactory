@@ -85,6 +85,8 @@ protected = [
   "src/swfactory/backend_scm.py",
   "src/swfactory/security_contract.py",
   "src/swfactory/accepted_inputs.py",
+  "src/swfactory/linear_source.py",
+  "src/swfactory/linear_intake.py",
   "tests/test_autonomy.py",
   "REVIEW.md",
   # --- this contract and the checks that police it -------------------------------------------

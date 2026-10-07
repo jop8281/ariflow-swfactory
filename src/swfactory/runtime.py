@@ -135,10 +135,11 @@ def _cell_binding(job: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def _managed_scm(cfg: Config, binding: dict[str, Any] | None) -> Scm | None:
+def _managed_scm(cfg: Config, binding: dict[str, Any] | None, blueprint: Blueprint | None = None) -> Scm | None:
     if binding is None or not binding["managed"] or cfg.scm != "github":
         return None
     from swfactory.backend_scm import BackendScm
+    from swfactory.security_contract import policy_digest_for_mapping
 
     return BackendScm(
         repo=cfg.repo,
@@ -148,6 +149,11 @@ def _managed_scm(cfg: Config, binding: dict[str, Any] | None) -> Scm | None:
         cell_id=binding["cell_id"],
         epoch=binding["epoch"],
         policy_digest=str(binding["policy_digest"]),
+        source_blueprint_digest=(
+            policy_digest_for_mapping(blueprint.model_dump(mode="json"))
+            if blueprint is not None and blueprint.work_source is not None
+            else None
+        ),
     )
 
 
@@ -169,7 +175,7 @@ def build_ctx(
         blueprint=bp,
         run_dir=job_run_dir(cfg, root),
         agent=agent,
-        scm_override=_managed_scm(cfg, binding),
+        scm_override=_managed_scm(cfg, binding, bp),
         cell_binding=binding,
         enforce_inputs=enforce_inputs,
     )
@@ -192,6 +198,10 @@ def ctx_for(
     the very cell cleanup exists to close. Every path that can produce work or publish it leaves the
     flag at its default.
     """
+    if blueprint.work_source is not None and (
+        not cell_binding or not cell_binding.get("managed") or cfg.scm != "github" or scm_override is None
+    ):
+        raise StageError("policy", "Linear work requires a backend-managed Cell and accepted source")
     if enforce_inputs:
         from swfactory.autonomy import enforce_runtime_policy
 

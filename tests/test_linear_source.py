@@ -244,6 +244,22 @@ def test_controller_refuses_credential_echo_anywhere_in_payload(monkeypatch, doc
         LinearSource(KEY, WORKSPACE, PROJECT).preview(ISSUE)
 
 
+@pytest.mark.parametrize("method", ["preview", "resolve_for_admission"])
+@pytest.mark.parametrize("field", ["title", "description"])
+def test_controller_refuses_json_escaped_credential_in_source(monkeypatch, document, method, field):
+    key = "synthetic-controller-secret-92847"
+    document["data"]["issue"][field] = f"Source text containing {key}."
+    document["data"]["issue"]["inverseRelations"] = {"nodes": [], "pageInfo": {"hasNextPage": False}}
+    escaped_key = "".join(f"\\u{ord(character):04x}" for character in key)
+    raw = json.dumps(document).replace(key, escaped_key).encode()
+    assert key.encode() not in raw
+    transport(monkeypatch, raw=raw)
+    source = LinearSource(key, WORKSPACE, PROJECT)
+    with pytest.raises(LinearSourceError, match="controller credential") as raised:
+        getattr(source, method)(ISSUE)
+    assert key not in str(raised.value)
+
+
 def test_real_transport_never_follows_redirect_with_controller_key(monkeypatch):
     requests = []
 

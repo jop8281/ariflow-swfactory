@@ -26,6 +26,10 @@ ISSUE_QUERY = """query FactoryLinearPreview($id: String!) {
     state { type }
   }
 }"""
+ADMISSION_QUERY = ISSUE_QUERY.replace(
+    "state { type }",
+    "state { type } inverseRelations(first: 250, includeArchived: true) { nodes { type } pageInfo { hasNextPage } }",
+)
 
 
 class LinearSourceError(ValueError):
@@ -179,10 +183,18 @@ class LinearSource:
             raise LinearSourceError("A Linear personal API key is required on the trusted controller")
 
     def preview(self, issue_id: str) -> LinearPreview:
+        return self._read(issue_id, admission=False)
+
+    def resolve_for_admission(self, issue_id: str) -> LinearPreview:
+        return self._read(issue_id, admission=True)
+
+    def _read(self, issue_id: str, *, admission: bool) -> LinearPreview:
         issue_id = _uuid(issue_id)
         request = urllib.request.Request(
             ENDPOINT,
-            data=json.dumps({"query": ISSUE_QUERY, "variables": {"id": issue_id}}).encode(),
+            data=json.dumps(
+                {"query": ADMISSION_QUERY if admission else ISSUE_QUERY, "variables": {"id": issue_id}}
+            ).encode(),
             headers={"Authorization": self.api_key, "Content-Type": "application/json", "Accept": "application/json"},
             method="POST",
         )
@@ -202,4 +214,27 @@ class LinearSource:
             payload = json.loads(raw)
         except (ValueError, UnicodeError):
             raise LinearSourceError("Linear returned invalid JSON") from None
-        return parse_preview(payload, workspace_id=self.workspace_id, project_id=self.project_id, issue_id=issue_id)
+        preview = parse_preview(payload, workspace_id=self.workspace_id, project_id=self.project_id, issue_id=issue_id)
+        if self.api_key in preview.title or self.api_key in preview.description:
+            raise LinearSourceError("Linear source response contains the controller credential")
+        if admission:
+            if preview.archived_at or preview.state_type in {"completed", "canceled", "duplicate"}:
+                raise LinearSourceError("Linear issue is archived or terminal; new work cannot be admitted")
+            try:
+                relations = payload["data"]["issue"]["inverseRelations"]
+                if relations["pageInfo"]["hasNextPage"] is not False:
+                    raise LinearSourceError("Linear dependencies are incomplete")
+                nodes = relations["nodes"]
+                if not isinstance(nodes, list) or any(
+                    not isinstance(row, dict) or not isinstance(row.get("type"), str) for row in nodes
+                ):
+                    raise LinearSourceError("Linear dependencies are invalid")
+                if any(row["type"] == "blocks" for row in nodes):
+                    raise LinearSourceError(
+                        "Linear dependency delivery receipts are not implemented; dependent work is refused"
+                    )
+                if any(row["type"] not in {"duplicate", "related"} for row in nodes):
+                    raise LinearSourceError("Linear relation type is unsupported; dependency eligibility is unknown")
+            except (KeyError, TypeError):
+                raise LinearSourceError("Linear dependency evidence is missing") from None
+        return preview
