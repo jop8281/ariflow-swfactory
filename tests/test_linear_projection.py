@@ -356,3 +356,71 @@ def test_corrupt_accepted_snapshot_never_reaches_network(monkeypatch):
     serve(monkeypatch, lambda p: pytest.fail("corrupt snapshot reached remote"))
     with pytest.raises(ProjectionTransportError):
         LinearProjectionTransport(KEY).validate_accepted_source(accepted, ref)
+
+
+@pytest.mark.parametrize("operation", ["attachment", "state"])
+@pytest.mark.parametrize("change", ["description", "archived", "canceled", "duplicate"])
+def test_accepted_writes_refuse_changed_or_withdrawn_source(monkeypatch, operation, change):
+    accepted, ref = accepted_document()
+    response = source_document()
+    issue = response["data"]["issue"]
+    if change == "description":
+        issue["description"] = "Different acceptance criteria"
+    elif change == "archived":
+        issue["archivedAt"] = "2026-10-07T08:00:00Z"
+    else:
+        issue["state"]["type"] = change
+    reads = []
+
+    def handler(payload):
+        assert payload["query"] == module.ISSUE_QUERY
+        reads.append(payload["variables"])
+        return response
+
+    serve(monkeypatch, handler)
+    transport = LinearProjectionTransport(KEY)
+    with pytest.raises(ProjectionTransportError):
+        if operation == "attachment":
+            transport.attach_accepted_pr(accepted, ref, URL, HEAD)
+        else:
+            transport.update_accepted_issue_state(accepted, ref, STATE, "started")
+    assert reads == [{"id": ISSUE}]
+
+
+def test_accepted_attachment_checks_source_before_write(monkeypatch):
+    accepted, ref = accepted_document()
+    queries = []
+
+    def handler(payload):
+        queries.append(payload["query"])
+        if payload["query"] == module.ISSUE_QUERY:
+            return source_document()
+        assert payload["variables"]["input"]["issueId"] == ISSUE
+        return {"data": {"attachmentCreate": {"success": True, "attachment": row()}}}
+
+    serve(monkeypatch, handler)
+    receipt = LinearProjectionTransport(KEY).attach_accepted_pr(accepted, ref, URL, HEAD)
+    assert receipt.issue_id == ISSUE
+    assert queries == [module.ISSUE_QUERY, module.ATTACH]
+
+
+def test_accepted_status_uses_source_workspace_and_team(monkeypatch):
+    accepted, ref = accepted_document()
+    queries = []
+
+    def handler(payload):
+        queries.append(payload["query"])
+        if payload["query"] == module.ISSUE_QUERY:
+            return source_document()
+        if "FactoryProjectionState(" in payload["query"]:
+            return state_document()
+        if "FactoryProjectionIssueState(" in payload["query"]:
+            return {"data": {"issue": issue_state()}}
+        assert payload["variables"] == {"id": ISSUE, "input": {"stateId": STATE}}
+        return {"data": {"issueUpdate": {"success": True, "issue": issue_state(STATE, "started")}}}
+
+    serve(monkeypatch, handler)
+    receipt = LinearProjectionTransport(KEY).update_accepted_issue_state(accepted, ref, STATE, "started")
+    assert receipt.team_id == TEAM
+    assert len(queries) == 4
+    assert queries[0] == module.ISSUE_QUERY

@@ -236,3 +236,20 @@ class LinearProjectionTransport:
         if current.archived_at or current.state_type in {"canceled", "duplicate"}:
             raise ProjectionTransportError("Linear projection source is archived or withdrawn")
         return current
+
+    def attach_accepted_pr(
+        self, document: dict[str, Any], expected_ref: str, url: str, head_sha: str
+    ) -> AttachmentReceipt:
+        _pr_url(url)
+        _head(head_sha)
+        current = self.validate_accepted_source(document, expected_ref)
+        return self.attach_pr(current.issue_id, url, head_sha)
+
+    def update_accepted_issue_state(
+        self, document: dict[str, Any], expected_ref: str, state_id: str, state_type: str
+    ) -> IssueStateReceipt:
+        _uuid(state_id)
+        if state_type not in {"started", "completed"}:
+            raise ProjectionTransportError("Projection state category is unsupported")
+        current = self.validate_accepted_source(document, expected_ref)
+        return self.update_issue_state(current.workspace_id, current.issue_id, current.team_id, state_id, state_type)
