@@ -305,6 +305,8 @@ pub enum SandboxKind {
     Docker,
     /// Airflow's own `SandboxBackend` abstraction.
     Toolset,
+    /// Hosted Boat VMs for the experimental WorldGen line.
+    Boat,
 }
 
 /// `[sandbox]` — the isolation boundary and its lifecycle.
@@ -1484,7 +1486,8 @@ order = ["intent", "deliver"]
                 "liquid",
                 "selfhost",
                 "stress",
-                "toolset"
+                "toolset",
+                "worldgen"
             ]
         );
 
@@ -1540,6 +1543,20 @@ order = ["intent", "deliver"]
         assert_eq!(toolset.sandbox.workdir, "/workspace/repo");
         assert_eq!(toolset.limits.max_build_iterations, 2);
         assert_eq!(toolset.sandbox.ttl_s, 10_800);
+
+        let Some(worldgen) = by_stem("worldgen") else {
+            panic!("worldgen.toml missing");
+        };
+        assert_eq!(worldgen.sandbox.kind, SandboxKind::Boat);
+        assert_eq!(worldgen.targets[0].repo, "jop8281/zozo123-genworld");
+        assert_eq!(worldgen.targets[0].dir, "code");
+        assert_eq!(worldgen.targets[0].base_branch, "stabilize/main");
+        assert_eq!(worldgen.limits.max_parallel_jobs, 1);
+        assert_eq!(worldgen.sandbox.ttl_s, 10_800);
+        assert_eq!(
+            worldgen.gate_after("plan").map(|g| g.requires_human()),
+            Some(true)
+        );
 
         let Some(liquid) = by_stem("liquid") else {
             panic!("liquid.toml missing");
