@@ -298,10 +298,11 @@ def test_prose_allowlists_name_new_hosts() -> None:
 
 
 def test_srt_default_domains_pin() -> None:
-    """The srt/docker work-cell egress default must also allow the npm registry.
+    """The srt/toolset work-cell egress default must also allow the npm registry.
 
-    A work cell whose target installs with Bun runs `bun install` on every sandbox backend, not
-    just islo; the registry serves metadata and tarballs itself, so this one host is the whole need.
+    A work cell whose target installs with Bun runs `bun install` on srt and toolset as well as
+    islo (docker has no domain allowlist, boat no swfactory egress policy); the registry serves
+    metadata and tarballs itself, so this one host is the whole need.
     """
     assert SRT_DEFAULT_DOMAINS == (
         "api.anthropic.com",
