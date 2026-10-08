@@ -117,7 +117,7 @@ pub struct RunMetrics {
     /// The agent kind. `scripted` marks a demo replay, which the aggregate counts separately.
     #[serde(default)]
     pub agent: String,
-    /// The sandbox kind: local/islo/srt/docker/toolset.
+    /// The sandbox kind: local/islo/srt/docker/toolset/boat.
     #[serde(default)]
     pub sandbox: String,
     /// The provider's sandbox name.

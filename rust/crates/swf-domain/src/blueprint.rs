@@ -305,7 +305,7 @@ pub enum SandboxKind {
     Docker,
     /// Airflow's own `SandboxBackend` abstraction.
     Toolset,
-    /// Hosted Boat VMs for the experimental WorldGen line.
+    /// boat.dev hosted VMs, the WorldGen pilot line's work cells.
     Boat,
 }
 
@@ -1548,6 +1548,7 @@ order = ["intent", "deliver"]
             panic!("worldgen.toml missing");
         };
         assert_eq!(worldgen.sandbox.kind, SandboxKind::Boat);
+        assert_eq!(worldgen.targets.len(), 1);
         assert_eq!(worldgen.targets[0].repo, "jop8281/zozo123-genworld");
         assert_eq!(worldgen.targets[0].dir, "code");
         assert_eq!(worldgen.targets[0].base_branch, "stabilize/main");
