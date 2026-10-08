@@ -6,6 +6,10 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Allow `registry.npmjs.org` in the work-cell egress allowlists (the islo `swfactory` gateway
+  profile and the srt/docker default) so a target that installs with Bun can run `bun install`
+  inside a work cell; the registry serves metadata and tarballs itself, so no CDN host is needed.
+
 - Add a `boat` sandbox kind: work cells on boat.dev VMs, the product sandbox provider on the
   WorldGen side. `BOAT_API_KEY` (optional `BOAT_BASE_URL`) is read from the process environment
   only and never enters an error or a report; the VM is created credential-free (`noEnv`),
