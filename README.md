@@ -364,6 +364,7 @@ claim's support level; a profile without a claim is an integration seam, not an 
 | `docker` | [`sandbox.docker`](config/capability-inventory.json) | experimental | Container execution for development and rehearsal; shares the host kernel |
 | `islo` | [`sandbox.islo`](config/capability-inventory.json) | experimental | Remote MicroVM execution with configured gateway and environment |
 | `toolset` | none | adapter | Airflow common.ai sandbox adapter; capabilities depend on its configured backend |
+| `boat` | none | adapter | boat.dev hosted VM work cells for the WorldGen pilot line; `BOAT_API_KEY` in the environment; no model credential path yet |
 
 An experimental [SmolVM backend](docs/smolvm.md) is available through `toolset` with
 `SWF_TOOLSET_BACKEND=smolvm`. It uses a host-owned Unix socket and durable attempt records;

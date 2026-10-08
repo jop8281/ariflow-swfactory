@@ -72,7 +72,7 @@ class Config(BaseSettings):
     blueprint: str = "factory"  # blueprints/<name>.toml that produced this config
 
     # -- execution: which implementation of each seam runs
-    sandbox: Literal["local", "islo", "srt", "docker", "toolset"] = "local"
+    sandbox: Literal["local", "islo", "srt", "docker", "toolset", "boat"] = "local"
     agent: Literal["claude", "scripted"] = "scripted"
     scm: Literal["local", "github"] = "local"
     approve: Literal["auto", "prompt"] = "prompt"
@@ -174,6 +174,15 @@ class Config(BaseSettings):
                 "(model-generated code must not "
                 "execute unconfined on the orchestrator). Set SWF_ALLOW_LOCAL_AGENT=1 / "
                 "--allow-local-agent to override for development."
+            )
+        if self.agent == "claude" and self.sandbox == "boat":
+            # The boat VM is created with noEnv and exec has no per-command environment, so the
+            # one credential that could reach it would be ambient for target verification too.
+            # Refused here rather than at the first agent call: the line cannot run this agent.
+            raise ValueError(
+                "agent=claude has no credential path into a boat sandbox (the VM is created "
+                "credential-free and exec carries no environment). Run the scripted agent on "
+                "boat, or use sandbox=islo, srt, docker or toolset for the claude agent."
             )
         if self.tests == "crabbox" and self.sandbox != "local":
             raise ValueError("tests=crabbox is only valid with sandbox=local (no nested boxes)")

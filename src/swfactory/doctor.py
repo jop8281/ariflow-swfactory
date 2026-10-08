@@ -587,7 +587,7 @@ def run_doctor(
 
         toolset_loader = load_toolset_backend
 
-    checks: list[Check] = list(sandbox_checks(cfg, runner, which=which, toolset_loader=toolset_loader))
+    checks: list[Check] = list(sandbox_checks(cfg, runner, which=which, toolset_loader=toolset_loader, env=env))
 
     if cfg.scm == "github":
         checks.append(_check_gh_auth(runner))
@@ -644,8 +644,30 @@ PROVIDER_CHECKS = frozenset(
         "docker daemon",
         "docker image",
         "toolset backend",
+        "boat api key",
     }
 )
+
+
+def boat_key_fix() -> str:
+    """The one command that satisfies the boat check, for the machine that runs the cells."""
+    return (
+        "export BOAT_API_KEY=<key from https://boat.dev/dashboard?tab=api-keys> in the "
+        "environment that runs the factory (BOAT_BASE_URL overrides https://boat.dev/api/v1)"
+    )
+
+
+def _check_boat(env: Mapping[str, str]) -> Check:
+    """The one boat precondition: the API key is present in the environment, never its value.
+
+    A doctor report gets pasted into issues, so the check answers presence only. The transport
+    itself (``swfactory.boat``) reads the key from the process environment and keeps it out of
+    every error; nothing here repeats that work, it just refuses a cell that cannot be created.
+    """
+    key = (env.get("BOAT_API_KEY") or "").strip()
+    if not key:
+        return Check("boat api key", False, "BOAT_API_KEY is not set", boat_key_fix())
+    return Check("boat api key", True, "BOAT_API_KEY is set (its value is never reported)")
 
 
 def sandbox_checks(
@@ -654,14 +676,17 @@ def sandbox_checks(
     *,
     which: Which = shutil.which,
     toolset_loader: ToolsetLoader | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> list[Check]:
     """Only the checks that decide whether ``cfg``'s sandbox provider can produce a cell.
 
     Split out of :func:`run_doctor` so a run can pay for these and nothing else. `doctor` still
     reports them in the same order, from the same code, so the preflight and the report can never
-    describe different environments.
+    describe different environments. ``env`` is where the boat kind looks for ``BOAT_API_KEY``
+    (presence only, never the value); it defaults to the process environment.
     """
     runner = runner if runner is not None else subprocess_runner
+    env = os.environ if env is None else env
     if toolset_loader is None:
         from swfactory.sandbox import load_toolset_backend
 
@@ -703,6 +728,10 @@ def sandbox_checks(
         checks.append(_check_toolset_backend(cfg.toolset_backend, toolset_loader))
         if checks[-1].ok and cfg.toolset_backend == "smolvm":
             checks.append(_check_smolvm_ready(cfg))
+    elif cfg.sandbox == "boat":
+        # The islo chain (CLI, auth, integrations, gateway profile, environment) does not apply
+        # to a boat cell: none of those rows run, so none of them can fail or block one.
+        checks.append(_check_boat(env))
     else:
         checks.append(Check("local sandbox", True, "no external sandbox provider"))
     return checks
@@ -726,6 +755,7 @@ def preflight(
     *,
     which: Which = shutil.which,
     toolset_loader: ToolsetLoader | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> list[Check]:
     """The blocking provider failures for ``cfg``; empty when the run may proceed. Never raises."""
-    return blocking(sandbox_checks(cfg, runner, which=which, toolset_loader=toolset_loader))
+    return blocking(sandbox_checks(cfg, runner, which=which, toolset_loader=toolset_loader, env=env))

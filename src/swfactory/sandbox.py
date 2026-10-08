@@ -17,6 +17,10 @@ Four implementations share one protocol:
   gateway's phantom ``ANTHROPIC_API_KEY``; it never receives a GitHub write token. The argv it
   builds never carries ``--env`` / ``--env-file`` (unit-tested invariant).
 
+A fifth implementation, the boat.dev VM work cell for the WorldGen pilot line, lives in
+``swfactory.boat`` (its own transport module, imported lazily by ``make_sandbox``); it follows
+this protocol exactly and is documented there.
+
 No environment passthrough exists on this protocol, by design.
 """
 
@@ -1400,6 +1404,22 @@ def make_sandbox(
             protected=protected,
             network=cfg.docker_network,
             user=cfg.docker_user or default_docker_user(),
+            state=RunState(run_dir) if run_dir is not None else None,
+        )
+    if cfg.sandbox == "boat":
+        # Imported lazily like smolvm: the boat module owns the transport and the VM cell, and
+        # nothing else in this file needs it. The client reads BOAT_API_KEY/BOAT_BASE_URL from
+        # the process environment only; the VM is created credential-free (noEnv) and clones the
+        # public target itself, so no credential crosses this seam.
+        from swfactory.boat import BoatSandbox, boat_client_from_env
+
+        return BoatSandbox(
+            cfg.sandbox_name(issue_id, repo),
+            client=boat_client_from_env(),
+            repo=cfg.repo,
+            base_branch=cfg.base_branch,
+            target_dir=cfg.target_dir,
+            ttl_s=cfg.sandbox_ttl_s,
             state=RunState(run_dir) if run_dir is not None else None,
         )
     return IsloSandbox(

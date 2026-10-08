@@ -6,6 +6,15 @@ All notable changes to this project will be documented here. The format follows
 
 ## [Unreleased]
 
+- Add a `boat` sandbox kind: work cells on boat.dev VMs, the product sandbox provider on the
+  WorldGen side. `BOAT_API_KEY` (optional `BOAT_BASE_URL`) is read from the process environment
+  only and never enters an error or a report; the VM is created credential-free (`noEnv`),
+  clones the public target itself, and always stops and waits for the archive. Ship
+  `blueprints/worldgen.toml`, the WorldGen pilot line (`jop8281/zozo123-genworld` at `code/` on
+  `stabilize/main`); `swfactory doctor` checks the key's presence (never its value) and skips
+  the islo chain for boat cells. `agent=claude` on `boat` is refused until a model-credential
+  path exists; run the scripted agent.
+
 ## [2.4.0] - 2026-10-03
 
 - Add read-only `swfactory state autonomy` inspection locally or through the authenticated
